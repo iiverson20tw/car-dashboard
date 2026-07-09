@@ -6,113 +6,363 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
-<title>車速儀表板</title>
+<title>汽車儀表板</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+  :root{
+    --bg1:#000;--bg2:#000;
+    --acc1:#4fa3ff;--acc2:#3ad17a;
+    --spd-weight:200;--spd-style:normal;--spd-glow:none;
+    --track:#1a1a1a;--txt-sub:#8a8a8a;--arc-w:14;
+  }
+  body.sport{
+    --bg1:#12060a;--bg2:#000;
+    --acc1:#ff2d2d;--acc2:#ff9500;
+    --spd-weight:800;--spd-style:italic;
+    --spd-glow:0 0 24px rgba(255,45,45,.55),0 0 60px rgba(255,60,0,.25);
+    --track:#241014;--txt-sub:#c96a6a;
+  }
   html,body{height:100%;background:#000;color:#fff;font-family:"Helvetica Neue",Arial,"PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden;}
-  #app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
-  .gauge{position:relative;width:min(82vw,360px);height:min(82vw,360px);display:flex;align-items:center;justify-content:center;}
-  svg{position:absolute;inset:0;transform:rotate(135deg);}
-  .track{fill:none;stroke:#1a1a1a;stroke-width:14;stroke-linecap:round;}
-  .prog{fill:none;stroke:url(#g);stroke-width:14;stroke-linecap:round;transition:stroke-dashoffset .3s ease;}
+  body{background:radial-gradient(120% 100% at 50% 0%,var(--bg1) 0%,var(--bg2) 70%);transition:background .5s;}
+  body.sport::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:repeating-linear-gradient(-55deg,rgba(255,45,45,.05) 0 2px,transparent 2px 26px);}
+  #app{height:100%;display:flex;position:relative;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);z-index:1;}
+  @media (orientation:portrait){#app{flex-direction:column;}}
+
+  /* ── 左：儀表 ── */
+  #dash{flex:1.05;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;min-width:0;min-height:0;padding-top:44px;}
+  .gauge{position:relative;width:min(64vmin,340px);height:min(64vmin,340px);display:flex;align-items:center;justify-content:center;}
+  .gauge svg{position:absolute;inset:0;transform:rotate(135deg);overflow:visible;}
+  .track{fill:none;stroke:var(--track);stroke-width:var(--arc-w);stroke-linecap:round;transition:stroke .4s;}
+  .prog{fill:none;stroke:url(#g);stroke-width:var(--arc-w);stroke-linecap:round;transition:stroke-dashoffset .25s ease;}
+  body.sport .prog{filter:drop-shadow(0 0 8px rgba(255,45,45,.8));}
+  #stopA{stop-color:var(--acc1);transition:stop-color .4s;}
+  #stopB{stop-color:var(--acc2);transition:stop-color .4s;}
+  .ticks line{stroke:#2c2c2c;stroke-width:2;transition:stroke .4s;}
+  body.sport .ticks line{stroke:#3d1a1e;}
+  body.sport .ticks line.red{stroke:#ff2d2d;stroke-width:3;}
   .center{display:flex;flex-direction:column;align-items:center;z-index:2;}
-  #spd{font-size:clamp(72px,26vw,150px);font-weight:200;line-height:.9;letter-spacing:-3px;font-variant-numeric:tabular-nums;}
-  .unit{font-size:18px;color:#8a8a8a;letter-spacing:3px;margin-top:6px;}
-  .stats{display:flex;gap:0;margin-top:34px;width:min(86vw,420px);justify-content:space-around;}
+  #spd{font-size:clamp(64px,20vmin,132px);font-weight:var(--spd-weight);font-style:var(--spd-style);line-height:.9;letter-spacing:-3px;font-variant-numeric:tabular-nums;text-shadow:var(--spd-glow);transition:font-weight .2s,text-shadow .4s;}
+  .unit{font-size:16px;color:var(--txt-sub);letter-spacing:3px;margin-top:6px;transition:color .4s;}
+  #modeBadge{display:none;margin-top:8px;font-size:12px;font-weight:800;font-style:italic;letter-spacing:4px;color:#ff2d2d;
+    border:1px solid #ff2d2d;border-radius:4px;padding:2px 10px 2px 14px;animation:pulse 1.6s infinite;}
+  body.sport #modeBadge{display:block;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(255,45,45,.6);}50%{box-shadow:0 0 16px rgba(255,45,45,.95);}}
+  .stats{display:flex;margin-top:22px;width:min(80vw,400px);justify-content:space-around;}
   .stat{text-align:center;flex:1;}
-  .stat .v{font-size:22px;font-weight:300;font-variant-numeric:tabular-nums;}
-  .stat .l{font-size:11px;color:#7a7a7a;margin-top:4px;letter-spacing:1px;}
-  .topbar{position:absolute;top:max(16px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;padding:0 22px;font-size:13px;color:#9a9a9a;font-variant-numeric:tabular-nums;}
+  .stat .v{font-size:20px;font-weight:300;font-variant-numeric:tabular-nums;}
+  body.sport .stat .v{font-weight:600;}
+  .stat .l{font-size:10px;color:var(--txt-sub);margin-top:4px;letter-spacing:1px;transition:color .4s;}
+  .topbar{position:absolute;top:max(10px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 16px;font-size:13px;color:#9a9a9a;font-variant-numeric:tabular-nums;z-index:5;}
   #status{display:flex;align-items:center;gap:6px;}
   .dot{width:8px;height:8px;border-radius:50%;background:#444;}
   .dot.on{background:#3ad17a;box-shadow:0 0 8px #3ad17a;}
   .dot.err{background:#ff5050;}
-  .btns{position:absolute;bottom:max(20px,env(safe-area-inset-bottom));display:flex;gap:14px;}
-  button{background:#161616;color:#fff;border:1px solid #2c2c2c;border-radius:30px;padding:11px 26px;font-size:15px;letter-spacing:1px;}
-  button:active{background:#262626;}
-  .start{background:#fff;color:#000;border:none;font-weight:600;}
-  #hint{position:absolute;top:46%;text-align:center;color:#888;font-size:15px;line-height:1.7;padding:0 30px;}
+  /* 模式切換 */
+  #modeSw{display:flex;background:#141414;border:1px solid #2c2c2c;border-radius:20px;overflow:hidden;}
+  #modeSw button{background:none;border:none;color:#888;font-size:12px;letter-spacing:1px;padding:6px 16px;font-weight:600;}
+  #modeSw button.act{background:#fff;color:#000;}
+  body.sport #modeSw button.act{background:linear-gradient(90deg,#ff2d2d,#ff9500);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+  .btns{display:flex;gap:10px;margin-top:20px;}
+  .btns button{background:#161616;color:#fff;border:1px solid #2c2c2c;border-radius:26px;padding:10px 22px;font-size:14px;letter-spacing:1px;}
+  .btns button:active{background:#262626;}
+  .btns .start{background:#fff;color:#000;border:none;font-weight:600;}
+  body.sport .btns .start{background:linear-gradient(90deg,#ff2d2d,#ff9500);color:#fff;}
+  #hint{text-align:center;color:#888;font-size:14px;line-height:1.7;padding:0 26px;margin-bottom:14px;}
+
+  /* ── 右：地圖 ── */
+  #mapPane{flex:1;position:relative;min-width:0;min-height:0;background:#0a0a0a;}
+  @media (orientation:portrait){#mapPane{flex:.9;}}
+  #map{position:absolute;inset:0;background:#0a0a0a;}
+  .leaflet-container{background:#0a0a0a;font-family:inherit;}
+  #navBar{position:absolute;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;z-index:1000;display:flex;gap:8px;}
+  #navBar input{flex:1;background:rgba(16,16,16,.92);border:1px solid #333;color:#fff;border-radius:12px;padding:11px 14px;font-size:14px;outline:none;min-width:0;}
+  #navBar input:focus{border-color:var(--acc1);}
+  #navBar button{background:var(--acc1);border:none;color:#000;font-weight:700;border-radius:12px;padding:0 18px;font-size:14px;transition:background .4s;}
+  body.sport #navBar button{color:#fff;}
+  #navInfo{position:absolute;bottom:14px;left:10px;right:10px;z-index:1000;background:rgba(12,12,12,.92);border:1px solid #2c2c2c;border-radius:14px;padding:12px 14px;display:none;backdrop-filter:blur(6px);}
+  #navInfo .inst{font-size:16px;font-weight:600;margin-bottom:6px;}
+  #navInfo .meta{font-size:12px;color:#9a9a9a;display:flex;justify-content:space-between;align-items:center;}
+  #navInfo .meta button{background:none;border:1px solid #444;color:#bbb;border-radius:8px;padding:4px 12px;font-size:12px;}
+  #followBtn{position:absolute;bottom:14px;right:10px;z-index:1000;background:rgba(16,16,16,.9);border:1px solid #333;color:#fff;border-radius:50%;width:44px;height:44px;font-size:18px;display:none;}
+  #navInfo.show ~ #followBtn{bottom:110px;}
+  .car-marker{width:0;height:0;}
+  .car-marker .arrow{width:26px;height:26px;margin:-13px 0 0 -13px;transition:transform .3s;
+    background:var(--acc1);clip-path:polygon(50% 0,90% 100%,50% 78%,10% 100%);
+    filter:drop-shadow(0 0 6px rgba(79,163,255,.8));}
+  body.sport .car-marker .arrow{background:#ff2d2d;filter:drop-shadow(0 0 8px rgba(255,45,45,.9));}
+  #mapMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#666;font-size:13px;text-align:center;line-height:1.8;padding:20px;z-index:999;}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="topbar">
-    <div id="clock">--:--</div>
-    <div id="status"><span class="dot" id="dot"></span><span id="stxt">未開始</span></div>
-  </div>
-
-  <div id="hint">按「開始」並允許定位<br>把手機放上車架就變儀表板 🚗</div>
-
-  <div class="gauge" style="display:none" id="gauge">
-    <svg viewBox="0 0 200 200">
-      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#4fa3ff"/><stop offset="1" stop-color="#3ad17a"/>
-      </linearGradient></defs>
-      <circle class="track" cx="100" cy="100" r="86" stroke-dasharray="405 540"/>
-      <circle class="prog" id="arc" cx="100" cy="100" r="86" stroke-dasharray="405 540" stroke-dashoffset="405"/>
-    </svg>
-    <div class="center">
-      <div id="spd">0</div>
-      <div class="unit">KM / H</div>
+  <div id="dash">
+    <div class="topbar">
+      <div id="clock">--:--</div>
+      <div id="modeSw">
+        <button id="mNormal" class="act">NORMAL</button>
+        <button id="mSport">SPORT</button>
+      </div>
+      <div id="status"><span class="dot" id="dot"></span><span id="stxt">未開始</span></div>
+    </div>
+    <div id="hint">按「開始」並允許定位，手機放上車架就是儀表板 🚗<br>右側可搜尋目的地開始導航</div>
+    <div class="gauge" id="gauge">
+      <svg viewBox="0 0 200 200">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop id="stopA" offset="0"/><stop id="stopB" offset="1"/>
+        </linearGradient></defs>
+        <g class="ticks" id="ticks"></g>
+        <circle class="track" cx="100" cy="100" r="86" stroke-dasharray="405 540"/>
+        <circle class="prog" id="arc" cx="100" cy="100" r="86" stroke-dasharray="405 540" stroke-dashoffset="405"/>
+      </svg>
+      <div class="center">
+        <div id="spd">0</div>
+        <div class="unit">KM / H</div>
+        <div id="modeBadge">SPORT</div>
+      </div>
+    </div>
+    <div class="stats" id="stats">
+      <div class="stat"><div class="v" id="mx">0</div><div class="l">最高 km/h</div></div>
+      <div class="stat"><div class="v" id="dist">0.0</div><div class="l">距離 km</div></div>
+      <div class="stat"><div class="v" id="alt">--</div><div class="l">海拔 m</div></div>
+      <div class="stat"><div class="v" id="dir">--</div><div class="l">方向</div></div>
+    </div>
+    <div class="btns">
+      <button class="start" id="go">開始</button>
+      <button id="reset">歸零</button>
+      <button id="demo">模擬</button>
     </div>
   </div>
 
-  <div class="stats" style="display:none" id="stats">
-    <div class="stat"><div class="v" id="mx">0</div><div class="l">最高 km/h</div></div>
-    <div class="stat"><div class="v" id="dist">0.0</div><div class="l">距離 km</div></div>
-    <div class="stat"><div class="v" id="alt">--</div><div class="l">海拔 m</div></div>
-    <div class="stat"><div class="v" id="dir">--</div><div class="l">方向</div></div>
-  </div>
-
-  <div class="btns">
-    <button class="start" id="go">開始</button>
-    <button id="reset" style="display:none">歸零</button>
+  <div id="mapPane">
+    <div id="map"></div>
+    <div id="mapMsg" style="display:none"></div>
+    <div id="navBar">
+      <input id="dest" type="text" placeholder="搜尋目的地（地址或地標）" autocomplete="off">
+      <button id="navGo">導航</button>
+    </div>
+    <div id="navInfo">
+      <div class="inst" id="navInst">--</div>
+      <div class="meta">
+        <span id="navMeta">--</span>
+        <button id="navEnd">結束導航</button>
+      </div>
+    </div>
+    <button id="followBtn" title="回到目前位置">◎</button>
   </div>
 </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const MAXSPD=180, ARC=405;
-let wId=null, maxS=0, dist=0, lastLat=null, lastLon=null, lastT=null;
 const $=id=>document.getElementById(id);
+let wId=null, maxS=0, dist=0, lastLat=null, lastLon=null, lastT=null;
+let curLat=25.0330, curLon=121.5654, curHead=0; // 預設台北101，取得定位後更新
+
+/* ── 時鐘 ── */
 function clk(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 setInterval(clk,1000);clk();
+
+/* ── 儀表刻度（SVG，沿 270° 弧線） ── */
+(function makeTicks(){
+  const g=$('ticks'), R1=95, R2=101, cx=100, cy=100;
+  for(let i=0;i<=18;i++){ // 每10km/h一格，0~180
+    const frac=i/18, ang=(frac*270)*Math.PI/180; // svg 已整體旋轉135°
+    const x1=cx+R1*Math.cos(ang), y1=cy+R1*Math.sin(ang);
+    const x2=cx+R2*Math.cos(ang), y2=cy+R2*Math.sin(ang);
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+    if(frac>=0.67)l.setAttribute('class','red'); // 120km/h 以上紅區（sport 模式亮紅）
+    g.appendChild(l);
+  }
+})();
+
+/* ── 模式切換 ── */
+function setMode(sport){
+  document.body.classList.toggle('sport',sport);
+  $('mSport').classList.toggle('act',sport);
+  $('mNormal').classList.toggle('act',!sport);
+  localStorage.setItem('dashMode',sport?'sport':'normal');
+}
+$('mNormal').onclick=()=>setMode(false);
+$('mSport').onclick=()=>setMode(true);
+if(localStorage.getItem('dashMode')==='sport')setMode(true);
+
+/* ── 速度顯示 ── */
 const dirTxt=b=>{const a=['北','東北','東','東南','南','西南','西','西北'];return a[Math.round(b/45)%8];};
-function show(run){['gauge','stats'].forEach(i=>$(i).style.display=run?'':'none');$('hint').style.display=run?'none':'';$('reset').style.display=run?'':'none';$('go').textContent=run?'停止':'開始';}
 function setSpd(kmh){
   kmh=Math.max(0,kmh);
   $('spd').textContent=Math.round(kmh);
-  const frac=Math.min(kmh/MAXSPD,1);
-  $('arc').style.strokeDashoffset=ARC-frac*ARC;
+  $('arc').style.strokeDashoffset=ARC-Math.min(kmh/MAXSPD,1)*ARC;
   if(kmh>maxS){maxS=kmh;$('mx').textContent=Math.round(maxS);}
 }
+function haversine(la1,lo1,la2,lo2){const R=6371000,toR=x=>x*Math.PI/180;const dLa=toR(la2-la1),dLo=toR(lo2-lo1);const a=Math.sin(dLa/2)**2+Math.cos(toR(la1))*Math.cos(toR(la2))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));}
+function bearing(la1,lo1,la2,lo2){const toR=x=>x*Math.PI/180,toD=x=>x*180/Math.PI;
+  const y=Math.sin(toR(lo2-lo1))*Math.cos(toR(la2));
+  const x=Math.cos(toR(la1))*Math.sin(toR(la2))-Math.sin(toR(la1))*Math.cos(toR(la2))*Math.cos(toR(lo2-lo1));
+  return (toD(Math.atan2(y,x))+360)%360;}
+
+/* ── GPS ── */
+function updatePosition(lat,lon,kmh,alt,head,ts){
+  if(lastLat!=null){dist+=haversine(lastLat,lastLon,lat,lon)/1000;$('dist').textContent=dist.toFixed(1);}
+  lastLat=lat;lastLon=lon;lastT=ts;
+  curLat=lat;curLon=lon;
+  if(kmh!=null)setSpd(kmh);
+  if(alt!=null)$('alt').textContent=Math.round(alt);
+  if(head!=null&&!isNaN(head)){curHead=head;$('dir').textContent=dirTxt(head);}
+  mapTick();
+  navTick();
+}
 function onPos(p){
-  $('dot').className='dot on';$('stxt').textContent='定位中';
+  $('dot').className='dot on';$('stxt').textContent='GPS';
   const c=p.coords;
-  let kmh = c.speed!=null && c.speed>=0 ? c.speed*3.6 : null;
-  const now=p.timestamp;
-  if(kmh==null && lastLat!=null){ // 沒有speed就用距離/時間自己算
-    const d=haversine(lastLat,lastLon,c.latitude,c.longitude);
-    const dt=(now-lastT)/1000;
+  let kmh=c.speed!=null&&c.speed>=0?c.speed*3.6:null;
+  if(kmh==null&&lastLat!=null&&lastT!=null){
+    const d=haversine(lastLat,lastLon,c.latitude,c.longitude),dt=(p.timestamp-lastT)/1000;
     if(dt>0)kmh=(d/dt)*3.6;
   }
-  if(lastLat!=null){dist+=haversine(lastLat,lastLon,c.latitude,c.longitude)/1000;$('dist').textContent=dist.toFixed(1);}
-  lastLat=c.latitude;lastLon=c.longitude;lastT=now;
-  if(kmh!=null)setSpd(kmh);
-  if(c.altitude!=null)$('alt').textContent=Math.round(c.altitude);
-  if(c.heading!=null && !isNaN(c.heading))$('dir').textContent=dirTxt(c.heading);
+  updatePosition(c.latitude,c.longitude,kmh,c.altitude,c.heading,p.timestamp);
 }
-function onErr(e){$('dot').className='dot err';$('stxt').textContent='定位失敗';alert('無法取得定位：'+e.message+'\\n\\n請確認：1.允許定位權限 2.用 HTTPS 開啟（手機上 file:// 無法定位）');}
-function haversine(la1,lo1,la2,lo2){const R=6371000,toR=x=>x*Math.PI/180;const dLa=toR(la2-la1),dLo=toR(lo2-lo1);const a=Math.sin(dLa/2)**2+Math.cos(toR(la1))*Math.cos(toR(la2))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));}
+function onErr(e){$('dot').className='dot err';$('stxt').textContent='定位失敗';
+  alert('無法取得定位：'+e.message+'\n\n請確認：1.允許定位權限 2.用 HTTPS 開啟（手機上 file:// 無法定位）');}
 $('go').onclick=()=>{
-  if(wId){navigator.geolocation.clearWatch(wId);wId=null;show(false);$('dot').className='dot';$('stxt').textContent='已停止';return;}
+  stopDemo();
+  if(wId){navigator.geolocation.clearWatch(wId);wId=null;$('dot').className='dot';$('stxt').textContent='已停止';$('go').textContent='開始';return;}
   if(!navigator.geolocation){alert('此裝置不支援定位');return;}
-  show(true);$('stxt').textContent='搜尋衛星…';
+  $('hint').style.display='none';$('go').textContent='停止';$('stxt').textContent='搜尋衛星…';
   wId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
 };
 $('reset').onclick=()=>{maxS=0;dist=0;lastLat=null;$('mx').textContent='0';$('dist').textContent='0.0';setSpd(0);};
-// 螢幕恆亮(支援的瀏覽器)
+
+/* ── 模擬模式（無GPS也能看效果；有導航路線時沿路線開） ── */
+let demoT=null,demoDist=0,demoClock=0;
+function stopDemo(){if(demoT){clearInterval(demoT);demoT=null;$('demo').textContent='模擬';}}
+$('demo').onclick=()=>{
+  if(demoT){stopDemo();$('stxt').textContent='已停止';$('dot').className='dot';return;}
+  if(wId){navigator.geolocation.clearWatch(wId);wId=null;$('go').textContent='開始';}
+  $('hint').style.display='none';$('demo').textContent='停止模擬';
+  $('dot').className='dot on';$('stxt').textContent='模擬中';
+  demoDist=0;demoClock=0;
+  demoT=setInterval(()=>{
+    demoClock+=0.4;
+    const kmh=60+55*Math.sin(demoClock/6)+18*Math.sin(demoClock/1.7); // 0~130 波動
+    let lat,lon,head=curHead;
+    if(route&&route.coords.length>1){ // 沿路線前進
+      demoDist+=Math.max(kmh,5)/3.6*0.4;
+      const p=pointAlongRoute(demoDist);
+      lat=p.lat;lon=p.lon;head=p.head;
+      if(demoDist>=route.total){stopDemo();$('stxt').textContent='已到達';}
+    }else{ // 原地繞圈
+      lat=curLat+0.0004*Math.sin(demoClock/5);lon=curLon+0.0004*Math.cos(demoClock/5);
+      head=(demoClock*12)%360;
+    }
+    updatePosition(lat,lon,Math.max(kmh,0),15,head,Date.now());
+  },400);
+};
+
+/* ── 地圖 ── */
+let map=null,carMk=null,routeLine=null,destMk=null,follow=true;
+try{
+  map=L.map('map',{zoomControl:false,attributionControl:true}).setView([curLat,curLon],15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+  carMk=L.marker([curLat,curLon],{icon:L.divIcon({className:'car-marker',html:'<div class="arrow"></div>'})}).addTo(map);
+  map.on('dragstart',()=>{follow=false;$('followBtn').style.display='block';});
+}catch(e){
+  $('mapMsg').style.display='flex';
+  $('mapMsg').textContent='地圖載入失敗（需要網路連線）';
+}
+$('followBtn').onclick=()=>{follow=true;$('followBtn').style.display='none';if(map)map.setView([curLat,curLon],map.getZoom());};
+function mapTick(){
+  if(!map)return;
+  carMk.setLatLng([curLat,curLon]);
+  const el=carMk.getElement();if(el){const a=el.querySelector('.arrow');if(a)a.style.transform='rotate('+curHead+'deg)';}
+  if(follow)map.setView([curLat,curLon],map.getZoom(),{animate:true});
+}
+
+/* ── 導航（Nominatim 搜尋 + OSRM 路線） ── */
+let route=null,stepIdx=0;
+const MANEUVER={'turn-left':'↰ 左轉','turn-right':'↱ 右轉','turn-slight left':'↖ 靠左','turn-slight right':'↗ 靠右',
+  'turn-sharp left':'⬅ 急左轉','turn-sharp right':'➡ 急右轉','turn-uturn':'⟲ 迴轉','turn-straight':'↑ 直行',
+  'depart':'🚗 出發','arrive':'🏁 到達目的地','merge':'⇗ 匯入','on ramp':'⇗ 上匝道','off ramp':'⇘ 下匝道',
+  'fork-left':'↖ 岔路靠左','fork-right':'↗ 岔路靠右','roundabout':'◯ 進入圓環','exit roundabout':'◯ 離開圓環',
+  'new name':'↑ 繼續直行','continue':'↑ 繼續直行','end of road-left':'↰ 路底左轉','end of road-right':'↱ 路底右轉'};
+function stepText(s){
+  const key=(s.maneuver.type+(s.maneuver.modifier?'-'+s.maneuver.modifier:'')).replace('turn-','turn-');
+  let t=MANEUVER[s.maneuver.type+'-'+(s.maneuver.modifier||'')]||MANEUVER[s.maneuver.type]||'↑ 前進';
+  if(s.name)t+='　'+s.name;
+  return t;
+}
+async function doNav(){
+  const q=$('dest').value.trim();
+  if(!q)return;
+  $('navGo').textContent='…';
+  try{
+    const geo=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
+      {headers:{'Accept-Language':'zh-TW'}}).then(r=>r.json());
+    if(!geo.length){alert('找不到「'+q+'」，換個關鍵字試試');$('navGo').textContent='導航';return;}
+    const dLat=+geo[0].lat,dLon=+geo[0].lon;
+    const res=await fetch('https://router.project-osrm.org/route/v1/driving/'+curLon+','+curLat+';'+dLon+','+dLat+'?overview=full&geometries=geojson&steps=true').then(r=>r.json());
+    if(res.code!=='Ok'||!res.routes.length){alert('規劃路線失敗，請稍後再試');$('navGo').textContent='導航';return;}
+    const r=res.routes[0];
+    const coords=r.geometry.coordinates.map(c=>({lat:c[1],lon:c[0]}));
+    // 累計里程表（給模擬沿線行駛用）
+    let acc=0;const cum=[0];
+    for(let i=1;i<coords.length;i++){acc+=haversine(coords[i-1].lat,coords[i-1].lon,coords[i].lat,coords[i].lon);cum.push(acc);}
+    route={coords,cum,total:acc,steps:r.legs[0].steps,duration:r.duration,distance:r.distance,dest:{lat:dLat,lon:dLon,name:geo[0].display_name.split(',')[0]}};
+    stepIdx=0;
+    if(map){
+      if(routeLine)routeLine.remove();
+      if(destMk)destMk.remove();
+      routeLine=L.polyline(coords.map(c=>[c.lat,c.lon]),{color:document.body.classList.contains('sport')?'#ff2d2d':'#4fa3ff',weight:5,opacity:.85}).addTo(map);
+      destMk=L.marker([dLat,dLon]).addTo(map);
+      map.fitBounds(routeLine.getBounds(),{padding:[40,40]});
+      follow=false;$('followBtn').style.display='block';
+    }
+    $('navInfo').classList.add('show');$('navInfo').style.display='block';
+    navTick();
+  }catch(e){alert('導航服務連線失敗（需要網路）：'+e.message);}
+  $('navGo').textContent='導航';
+}
+$('navGo').onclick=doNav;
+$('dest').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doNav();}});
+$('navEnd').onclick=()=>{
+  route=null;$('navInfo').style.display='none';$('navInfo').classList.remove('show');
+  if(routeLine){routeLine.remove();routeLine=null;}
+  if(destMk){destMk.remove();destMk=null;}
+};
+function pointAlongRoute(d){
+  const {coords,cum}=route;
+  if(d>=route.total){const p=coords[coords.length-1];return{lat:p.lat,lon:p.lon,head:curHead};}
+  let i=1;while(i<cum.length&&cum[i]<d)i++;
+  const f=(d-cum[i-1])/((cum[i]-cum[i-1])||1);
+  const a=coords[i-1],b=coords[i];
+  return{lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,head:bearing(a.lat,a.lon,b.lat,b.lon)};
+}
+function fmtDur(s){const m=Math.round(s/60);return m<60?m+' 分鐘':Math.floor(m/60)+' 小時 '+(m%60)+' 分';}
+function navTick(){
+  if(!route)return;
+  // 前進到下一個尚未通過的 step（30m 內視為通過）
+  while(stepIdx<route.steps.length-1){
+    const loc=route.steps[stepIdx].maneuver.location;
+    if(haversine(curLat,curLon,loc[1],loc[0])<30)stepIdx++;
+    else break;
+  }
+  const s=route.steps[stepIdx];
+  const loc=s.maneuver.location;
+  const dToStep=haversine(curLat,curLon,loc[1],loc[0]);
+  const remain=haversine(curLat,curLon,route.dest.lat,route.dest.lon);
+  $('navInst').textContent=(dToStep>40?Math.round(dToStep)+' m 後　':'')+stepText(s);
+  $('navMeta').textContent='剩餘約 '+(remain/1000).toFixed(1)+' km｜全程 '+(route.distance/1000).toFixed(1)+' km · '+fmtDur(route.duration)+'｜→ '+route.dest.name;
+  if(remain<40){$('navInst').textContent='🏁 已到達 '+route.dest.name;}
+}
+
+/* ── 螢幕恆亮 ── */
 let wl=null;async function keepAwake(){try{wl=await navigator.wakeLock.request('screen');}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(wl!==null&&document.visibilityState==='visible')keepAwake();});
 $('go').addEventListener('click',keepAwake,{once:true});
+$('demo').addEventListener('click',keepAwake,{once:true});
 </script>
 </body>
 </html>
