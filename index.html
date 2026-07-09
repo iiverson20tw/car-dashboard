@@ -26,12 +26,21 @@
   }
   html,body{height:100%;background:#000;color:#fff;font-family:"Helvetica Neue",Arial,"PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden;}
 
-  /* ── 全螢幕地圖 ── */
-  #map{position:fixed;inset:0;z-index:0;background:#0a0a0a;}
+  /* ── 全螢幕地圖（超出視窗的正方形，才能整張旋轉做「車頭朝上」） ── */
+  #mapWrap{position:fixed;inset:0;overflow:hidden;z-index:0;background:#0a0a0a;}
+  #map{position:absolute;left:50%;top:50%;width:150vmax;height:150vmax;
+    transform:translate(-50%,-50%) rotate(0deg);transition:transform .45s linear;will-change:transform;}
   .leaflet-container{background:#0a0a0a;font-family:inherit;}
-  .leaflet-top.leaflet-left{top:118px;left:12px;}
-  .leaflet-bar a{background:rgba(14,14,16,.88)!important;color:#ddd!important;border-color:#2c2c2c!important;backdrop-filter:blur(6px);}
   #mapMsg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#666;font-size:13px;text-align:center;line-height:1.8;padding:20px;z-index:1;}
+  /* 自訂縮放鈕（Leaflet 內建的會跟著地圖轉，改放外層） */
+  #zoomBtns{position:fixed;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 106px);z-index:1000;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;}
+  #zoomBtns button{background:none;border:none;color:#ddd;font-size:20px;width:42px;height:40px;font-weight:600;}
+  #zoomBtns button:first-child{border-bottom:1px solid #2a2a2e;}
+  #zoomBtns button:active{background:#2c2c30;}
+  #hdgBtn{position:fixed;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 118px);z-index:1000;
+    color:#ddd;font-size:12px;letter-spacing:1px;padding:10px 13px;border:none;}
+  #hdgBtn.on{color:#fff;border:1px solid var(--acc1);box-shadow:0 0 12px rgba(79,163,255,.25);}
+  body.sport #hdgBtn.on{box-shadow:0 0 12px rgba(255,45,45,.35);}
 
   /* sport 全畫面紅色氛圍 */
   #vignette{position:fixed;inset:0;pointer-events:none;z-index:500;opacity:0;transition:opacity .6s;
@@ -129,14 +138,15 @@
     #navInfo{top:auto;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 122px);}
     #bottomBar{flex-wrap:wrap;justify-content:center;gap:10px 16px;}
     #hint{display:none;}
-    .leaflet-top.leaflet-left{top:12px;}
+    #zoomBtns{top:auto;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 118px);}
   }
 </style>
 </head>
 <body>
-<div id="map"></div>
+<div id="mapWrap"><div id="map"></div></div>
 <div id="mapMsg"></div>
 <div id="vignette"></div>
+<div id="zoomBtns" class="pill"><button id="zin">＋</button><button id="zout">－</button></div>
 
 <div id="topLeft">
   <div class="pill" id="clock">--:--</div>
@@ -187,7 +197,9 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
+  <span style="font-size:9px;color:#556;margin-left:4px">© OSM © CARTO</span>
 </div>
+<button id="hdgBtn" class="pill on" title="切換 車頭朝上 / 北朝上">🧭 車頭朝上</button>
 <button id="followBtn" title="回到目前位置">◎</button>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -249,7 +261,11 @@ function bearing(la1,lo1,la2,lo2){const toR=x=>x*Math.PI/180,toD=x=>x*180/Math.P
 
 /* ── 位置更新 ── */
 function updatePosition(lat,lon,kmh,alt,head,ts){
-  if(lastLat!=null){dist+=haversine(lastLat,lastLon,lat,lon)/1000;$('dist').textContent=dist.toFixed(1);}
+  if(lastLat!=null){
+    const step=haversine(lastLat,lastLon,lat,lon);
+    if(step<2000)dist+=step/1000; // 一步跳超過2km視為換來源/瞬移，不累計
+    $('dist').textContent=dist.toFixed(1);
+  }
   lastLat=lat;lastLon=lon;lastT=ts;
   curLat=lat;curLon=lon;
   if(kmh!=null)setSpd(kmh);
@@ -258,6 +274,7 @@ function updatePosition(lat,lon,kmh,alt,head,ts){
   mapTick();
   navTick();
 }
+function resetTrack(){lastLat=null;lastLon=null;lastT=null;} // 切換 GPS/模擬 前呼叫，避免瞬移灌爆速度與距離
 function onPos(p){
   $('dot').className='dot on';$('stxt').textContent='GPS';
   const c=p.coords;
@@ -265,6 +282,7 @@ function onPos(p){
   if(kmh==null&&lastLat!=null&&lastT!=null){
     const d=haversine(lastLat,lastLon,c.latitude,c.longitude),dt=(p.timestamp-lastT)/1000;
     if(dt>0)kmh=(d/dt)*3.6;
+    if(kmh!=null&&kmh>250)kmh=null; // 位置跳動算出的不合理速度直接丟棄
   }
   updatePosition(c.latitude,c.longitude,kmh,c.altitude,c.heading,p.timestamp);
 }
@@ -274,6 +292,7 @@ $('go').onclick=()=>{
   stopDemo();
   if(wId){navigator.geolocation.clearWatch(wId);wId=null;$('dot').className='dot';$('stxt').textContent='已停止';$('go').textContent='開始';return;}
   if(!navigator.geolocation){alert('此裝置不支援定位');return;}
+  resetTrack();
   $('hint').style.display='none';$('go').textContent='停止';$('stxt').textContent='搜尋衛星…';
   wId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
 };
@@ -285,6 +304,7 @@ function stopDemo(){if(demoT){clearInterval(demoT);demoT=null;$('demo').textCont
 $('demo').onclick=()=>{
   if(demoT){stopDemo();$('stxt').textContent='已停止';$('dot').className='dot';return;}
   if(wId){navigator.geolocation.clearWatch(wId);wId=null;$('go').textContent='開始';}
+  resetTrack();
   $('hint').style.display='none';$('demo').textContent='停止模擬';
   $('dot').className='dot on';$('stxt').textContent='模擬中';
   demoDist=0;demoClock=0;
@@ -307,20 +327,42 @@ $('demo').onclick=()=>{
 
 /* ── 地圖 ── */
 let map=null,carMk=null,routeLine=null,destMk=null,follow=true;
+let headingUp=localStorage.getItem('headingUp')!=='0'; // 預設車頭朝上
+let rotCur=0; // 累計旋轉角（走最短路徑，避免 359→1 整圈打轉）
+function applyRot(target){
+  const delta=((target-rotCur)%360+540)%360-180;
+  rotCur+=delta;
+  $('map').style.transform='translate(-50%,-50%) rotate('+rotCur+'deg)';
+}
 try{
-  map=L.map('map',{zoomControl:true,attributionControl:true}).setView([curLat,curLon],16);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-    maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+  map=L.map('map',{zoomControl:false,attributionControl:false}).setView([curLat,curLon],16);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
   carMk=L.marker([curLat,curLon],{icon:L.divIcon({className:'car-marker',html:'<div class="arrow"></div>'})}).addTo(map);
-  map.on('dragstart',()=>{follow=false;$('followBtn').style.display='block';});
+  map.on('dragstart',()=>{follow=false;$('followBtn').style.display='block';applyRot(0);});
 }catch(e){
   $('mapMsg').style.display='flex';
   $('mapMsg').textContent='地圖載入失敗（需要網路連線）';
 }
-$('followBtn').onclick=()=>{follow=true;$('followBtn').style.display='none';if(map)map.setView([curLat,curLon],map.getZoom());};
+$('zin').onclick=()=>{if(map)map.zoomIn();};
+$('zout').onclick=()=>{if(map)map.zoomOut();};
+$('followBtn').onclick=()=>{follow=true;$('followBtn').style.display='none';mapTick();};
+function refreshHdgBtn(){
+  $('hdgBtn').textContent=headingUp?'🧭 車頭朝上':'🧭 北朝上';
+  $('hdgBtn').classList.toggle('on',headingUp);
+}
+$('hdgBtn').onclick=()=>{
+  headingUp=!headingUp;
+  localStorage.setItem('headingUp',headingUp?'1':'0');
+  refreshHdgBtn();
+  mapTick();
+  if(!headingUp)applyRot(0);
+};
+refreshHdgBtn();
 function mapTick(){
   if(!map)return;
   carMk.setLatLng([curLat,curLon]);
+  // 車頭朝上＝整張地圖反向旋轉；箭頭本身維持 rotate(curHead)，兩者相加後在畫面上恆指正上方
+  applyRot(headingUp&&follow?-curHead:0);
   const el=carMk.getElement();if(el){const a=el.querySelector('.arrow');if(a)a.style.transform='rotate('+curHead+'deg)';}
   if(follow)map.setView([curLat,curLon],map.getZoom(),{animate:true});
 }
@@ -360,7 +402,7 @@ async function doNav(){
       routeLine=L.polyline(coords.map(c=>[c.lat,c.lon]),{color:document.body.classList.contains('sport')?'#ff2d2d':'#4fa3ff',weight:5,opacity:.85}).addTo(map);
       destMk=L.marker([dLat,dLon]).addTo(map);
       map.fitBounds(routeLine.getBounds(),{padding:[60,60]});
-      follow=false;$('followBtn').style.display='block';
+      follow=false;$('followBtn').style.display='block';applyRot(0);
     }
     $('navInfo').style.display='block';
     navTick();
