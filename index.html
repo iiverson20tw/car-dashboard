@@ -164,7 +164,7 @@
   /* 俯視車標(SVG)：會轉向行進方向，像 Google 導航 */
   .car-marker .vsvg{height:50px;width:auto;overflow:visible;transition:transform .3s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.55));}
   .car-marker .vsvg.nav{height:38px;}
-  .car-marker .vsvg.car3d{height:56px;}
+  .car-marker .vcar{height:54px;width:auto;display:block;transition:transform .3s;filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));}
   .car-marker .vsvg .body{fill:var(--acc1);stroke:#fff;stroke-width:1.6;stroke-linejoin:round;}
   body.sport .car-marker .vsvg .body{fill:#ff2d2d;}
   .car-marker .vsvg.taxi .body{fill:#f7c331;}
@@ -275,7 +275,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v20</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v21</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -535,7 +535,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v20';
+const APP_VER='v21';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -583,55 +583,29 @@ function TRUCK_SVG(){return '<svg class="vsvg" viewBox="0 0 40 86">'
   +'<path d="M11 6Q20 3.5 29 6L27.5 13h-15z" fill="#d6e8ff"/>'
   +'<rect x="9" y="30" width="22" height="50" rx="2" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.4"/>'
   +'<line x1="20" y1="30" x2="20" y2="80" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/></svg>';}
-// 立體光澤汽車(俯視,Google導航風)：車身用 currentColor，光澤/陰影半透明疊上→任何顏色都對，可自選車色
-function CAR3D(col){col=col||carColor;return '<svg class="vsvg car3d" viewBox="0 0 60 94" style="color:'+col+'">'
-  +'<defs>'
-  +'<linearGradient id="c3g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="#fff" stop-opacity=".12"/><stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".38"/></linearGradient>'
-  +'<linearGradient id="c3s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".34"/><stop offset=".18" stop-color="#000" stop-opacity="0"/><stop offset=".82" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".34"/></linearGradient>'
-  +'<linearGradient id="c3w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe6ff"/><stop offset="1" stop-color="#3a5b7d"/></linearGradient>'
-  +'</defs>'
-  +'<rect x="3" y="24" width="6" height="13" rx="3" fill="#141414"/><rect x="51" y="24" width="6" height="13" rx="3" fill="#141414"/>'
-  +'<rect x="3" y="60" width="6" height="14" rx="3" fill="#141414"/><rect x="51" y="60" width="6" height="14" rx="3" fill="#141414"/>'
-  +'<path fill="currentColor" d="M30 3C21 3 14 8 11 21 8 30 7 44 7 57c0 20 5 34 23 34s23-14 23-34c0-13-1-27-4-36C46 8 39 3 30 3z"/>'
-  +'<path fill="url(#c3s)" d="M30 3C21 3 14 8 11 21 8 30 7 44 7 57c0 20 5 34 23 34s23-14 23-34c0-13-1-27-4-36C46 8 39 3 30 3z"/>'
-  +'<path fill="url(#c3g)" d="M30 3C21 3 14 8 11 21 8 30 7 44 7 57c0 20 5 34 23 34s23-14 23-34c0-13-1-27-4-36C46 8 39 3 30 3z"/>'
-  +'<path d="M22 12q8-4 16 0l-2 9q-6-2.5-12 0z" fill="#fff" opacity=".22"/>'
-  +'<path d="M17 27q13-6 26 0l-2.5 13H19.5z" fill="url(#c3w)"/>'
-  +'<path d="M17 27q13-6 26 0l-1 5q-12-4.5-24 0z" fill="#eaf5ff" opacity=".7"/>'
-  +'<rect x="18" y="42" width="24" height="20" rx="6" fill="#000" opacity=".16"/>'
-  +'<rect x="19.5" y="43.5" width="21" height="8" rx="4" fill="#fff" opacity=".14"/>'
-  +'<path d="M19 64h22l-2 12q-9 4-18 0z" fill="url(#c3w)" opacity=".92"/>'
-  +'<ellipse cx="16" cy="15" rx="3" ry="2" fill="#fff8d8"/><ellipse cx="44" cy="15" rx="3" ry="2" fill="#fff8d8"/>'
-  +'<rect x="13" y="82" width="10" height="3.5" rx="1.7" fill="#ff4d4d"/><rect x="37" y="82" width="10" height="3.5" rx="1.7" fill="#ff4d4d"/>'
-  +'</svg>';}
-const CAR_COLORS=[['#1877ff','電光藍'],['#8f2fd0','日落洋紅'],['#ff3b3b','賽車紅'],['#eaedf1','珍珠白'],['#ffcf33','檸檬黃'],['#17a2a2','湖水綠'],['#141a22','曜石黑'],['#8d99a6','太空灰']];
-let carColor=localStorage.getItem('carColor')||'#1877ff';
+// 真實俯視車圖(CC0, Unlucky Studio 渲染圖，非手繪)：front 朝上(0°)，隨行進方向旋轉
 const CAR_ICONS=[
-  {k:'car3d',n:'立體汽車',g:'🚙',html:'',           rot:true},
-  {k:'nav',  n:'導航箭頭',g:'➤',html:NAV_SVG(),      rot:true},
-  {k:'arrow',n:'簡易箭頭',g:'▲',html:'<div class="arrow"></div>', rot:true},
-  {k:'car',  n:'汽車',g:'🚗', html:CAR_SVG(''),      rot:true},
-  {k:'moto', n:'機車',g:'🏍️', html:MOTO_SVG(),       rot:true},
-  {k:'truck',n:'貨車',g:'🚚', html:TRUCK_SVG(),      rot:true},
-  {k:'taxi', n:'計程車',g:'🚕',html:CAR_SVG(' taxi'), rot:true},
-  {k:'dot',  n:'圓點',g:'🔵', html:'<svg class="vsvg" viewBox="0 0 26 26" style="height:26px;width:26px"><circle cx="13" cy="13" r="7.5" class="body"/><circle cx="13" cy="13" r="3" fill="#fff"/></svg>', rot:false},
+  {k:'audi',     n:'紅色轎跑',g:'🚗', img:'audi',      rot:true},
+  {k:'viper',    n:'黑色跑車',g:'🏎️', img:'viper',     rot:true},
+  {k:'orange',   n:'橘色轎車',g:'🚙', img:'orange',    rot:true},
+  {k:'pickup',   n:'藍色貨卡',g:'🛻', img:'pickup',    rot:true},
+  {k:'van',      n:'白色廂型車',g:'🚐', img:'van',      rot:true},
+  {k:'taxi',     n:'計程車',  g:'🚕', img:'taxi',      rot:true},
+  {k:'police',   n:'警車',    g:'🚓', img:'police',    rot:true},
+  {k:'truck',    n:'大貨車',  g:'🚚', img:'truck',     rot:true},
+  {k:'ambulance',n:'救護車',  g:'🚑', img:'ambulance', rot:true},
+  {k:'nav',      n:'導航箭頭',g:'➤',  html:NAV_SVG(),  rot:true},
+  {k:'dot',      n:'圓點',    g:'🔵', html:'<svg class="vsvg" viewBox="0 0 26 26" style="height:26px;width:26px"><circle cx="13" cy="13" r="7.5" class="body"/><circle cx="13" cy="13" r="3" fill="#fff"/></svg>', rot:false},
 ];
-let carIcon=localStorage.getItem('carIcon')||'car3d';
+let carIcon=localStorage.getItem('carIcon')||'audi';
 function iconObj(){ return CAR_ICONS.find(x=>x.k===carIcon)||CAR_ICONS[0]; }
-function iconHtml(){ const o=iconObj(); return o.k==='car3d'?CAR3D(carColor):o.html; }
+function iconHtml(){ const o=iconObj(); return o.img?('<img class="vcar" src="icons/car_'+o.img+'.png" alt="">'):o.html; }
 function setCarIcon(k){
   carIcon=k; localStorage.setItem('carIcon',k);
   if(carEl) carEl.innerHTML=iconHtml();
   const ib=$('iconBtn'); if(ib) ib.textContent=iconObj().g;
   document.querySelectorAll('#iconPanel button[data-k]').forEach(b=>b.classList.toggle('act',b.dataset.k===k));
-  document.querySelectorAll('#carColors').forEach(el=>el.style.display=(k==='car3d')?'flex':'none');
   mapTick(false);
-}
-function setCarColor(c){
-  carColor=c; localStorage.setItem('carColor',c);
-  if(carIcon!=='car3d'){ setCarIcon('car3d'); }
-  else if(carEl){ carEl.innerHTML=iconHtml(); mapTick(false); }
-  document.querySelectorAll('#carColors button').forEach(b=>b.classList.toggle('act',b.dataset.c===c));
 }
 (function buildIconPanel(){
   const panel=$('iconPanel');
@@ -640,11 +614,6 @@ function setCarColor(c){
     b.onclick=()=>{ setCarIcon(s.k); panel.classList.remove('open'); };
     panel.appendChild(b);
   });
-  const cw=document.createElement('div'); cw.id='carColors';
-  const lb=document.createElement('span'); lb.className='clbl'; lb.textContent='車身顏色'; cw.appendChild(lb);
-  CAR_COLORS.forEach(([c,n])=>{ const b=document.createElement('button'); b.dataset.c=c; b.title=n; b.style.background=c;
-    b.classList.toggle('act',c===carColor); b.onclick=()=>setCarColor(c); cw.appendChild(b); });
-  panel.appendChild(cw);
   $('iconBtn').onclick=e=>{ e.stopPropagation(); $('layerPanel').classList.remove('open'); panel.classList.toggle('open'); };
   document.addEventListener('pointerdown',e=>{ if(!panel.contains(e.target)&&e.target!==$('iconBtn')) panel.classList.remove('open'); });
 })();
