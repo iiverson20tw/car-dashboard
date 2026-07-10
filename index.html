@@ -275,7 +275,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v22</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v23</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -408,6 +408,9 @@ function updatePosition(lat,lon,kmh,alt,head,ts){
     const step=haversine(lastLat,lastLon,lat,lon);
     if(step<2000)dist+=step/1000; // 一步跳超過2km視為換來源/瞬移，不累計
     $('dist').textContent=dist.toFixed(1);
+    // GPS 常常回傳不了 heading(靜止/無磁力計/低速)→用前後兩點的方位當行進方向，
+    // 否則車標會維持舊角度但位置往前跑＝看起來像橫移。移動 >=3m 才更新，避免原地抖動亂轉
+    if((head==null||isNaN(head))&&step>=3){ head=bearing(lastLat,lastLon,lat,lon); }
   }
   lastLat=lat;lastLon=lon;lastT=ts;
   curLat=lat;curLon=lon;
@@ -469,8 +472,11 @@ $('demo').onclick=()=>{
       lat=p.lat;lon=p.lon;head=p.head;
       if(demoDist>=route.total){stopDemo();$('stxt').textContent='已到達';}
     }else{
-      lat=curLat+0.0004*Math.sin(demoClock/5);lon=curLon+0.0004*Math.cos(demoClock/5);
-      head=(demoClock*12)%360;
+      // 無路線：沿著行進方向往前開(緩緩蛇行)，而不是原地繞圈→避免橫移
+      head=(curHead+3*Math.sin(demoClock/7)+360)%360;
+      const d=Math.max(kmh,5)/3.6*0.4;            // 這 0.4 秒移動的公尺數
+      lat=curLat+d*Math.cos(head*Math.PI/180)/111111;
+      lon=curLon+d*Math.sin(head*Math.PI/180)/(111111*Math.cos(curLat*Math.PI/180));
     }
     updatePosition(lat,lon,Math.max(kmh,0),15,head,Date.now());
   },400);
@@ -535,7 +541,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v22';
+const APP_VER='v23';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
