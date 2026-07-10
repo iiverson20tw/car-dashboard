@@ -140,6 +140,13 @@
   :root{ --lockInset: max(env(safe-area-inset-top, 0px), 22px); }
   #stage{position:fixed;inset:0;}
   #flipBtn{display:none;}
+  /* iOS Safari 對圓形/圓角元素的 backdrop-filter 毛玻璃會把「取樣的模糊底圖」畫在
+     跟元素本體錯開的位置(尤其在 fixed / overflow:hidden / 旋轉的容器裡)，導致時速表
+     那層深色圓盤跟數字、刻度沒對齊(看起來歪掉)。這些元素背景本身已 82~95% 不透明，
+     直接關掉 backdrop-filter 外觀幾乎無差，但圓盤就會完全貼齊。全方向一律關。 */
+  #pod,.pill,#navBar input,#suggest,#turnCard,#followBtn{
+    backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
+  }
   @media (orientation:portrait) and (pointer:coarse){
     #stage{
       inset:auto;top:50%;left:50%;
@@ -155,10 +162,7 @@
       font-size:12px;color:#ddd;padding:8px 12px;border:none;
     }
     #hint{display:none;}
-    /* iOS Safari 在被 CSS rotate 的祖先裡，backdrop-filter 的取樣區不會跟著轉，
-       會讓毛玻璃「圓盤」跟數字/弧線錯開(看起來沒疊在一起)。強制橫向時關掉即可，
-       pod/pill 背景本身已夠不透明，外觀幾乎無差。 */
-    #pod,.pill,#navBar input,#turnCard,#followBtn{ backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+  }
 </style>
 </head>
 <body>
