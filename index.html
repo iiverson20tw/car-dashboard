@@ -152,11 +152,16 @@
   #followBtn{position:fixed;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 66px);z-index:1000;
     background:rgba(16,16,18,.9);border:1px solid #333;color:#fff;border-radius:50%;width:44px;height:44px;font-size:18px;display:none;backdrop-filter:blur(6px);}
 
-  .car-marker{width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
+  .car-marker{width:30px;height:44px;display:flex;align-items:center;justify-content:center;}
   .car-marker .arrow{width:26px;height:26px;transition:transform .3s;
     background:var(--acc1);clip-path:polygon(50% 0,90% 100%,50% 78%,10% 100%);
     filter:drop-shadow(0 0 6px rgba(79,163,255,.8));}
-  .car-marker .veh{font-size:28px;line-height:1;transition:transform .3s;filter:drop-shadow(0 1px 3px rgba(0,0,0,.75));}
+  /* 俯視車標(SVG)：會轉向行進方向，像 Google 導航 */
+  .car-marker .vsvg{width:26px;height:44px;overflow:visible;transition:transform .3s;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));}
+  .car-marker .vsvg .body{fill:var(--acc1);stroke:#fff;stroke-width:1.4;}
+  body.sport .car-marker .vsvg .body{fill:#ff2d2d;}
+  .car-marker .vsvg.taxi .body{fill:#f5c21b;}
+  body.sport .car-marker .vsvg.taxi .body{fill:#f5c21b;}
   body.sport .car-marker .arrow{background:#ff2d2d;filter:drop-shadow(0 0 8px rgba(255,45,45,.9));}
 
   /* 手機方向鎖定開著也要橫向：直向時把整個儀表板轉90°(force landscape)。
@@ -263,7 +268,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v16</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v17</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -523,7 +528,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v16';
+const APP_VER='v17';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -547,12 +552,12 @@ $('tiltBtn').onclick=()=>{ is3D=!is3D; localStorage.setItem('map3D',is3D?'1':'0'
 
 /* ── 車標圖示(可自選：箭頭/汽車/機車…，存 localStorage) ── */
 const CAR_ICONS=[
-  {k:'arrow',n:'箭頭',g:'➤',  html:'<div class="arrow"></div>',        rot:true},
-  {k:'car',  n:'汽車',g:'🚗', html:'<div class="veh">🚗</div>',        rot:false},
-  {k:'moto', n:'機車',g:'🏍️', html:'<div class="veh">🏍️</div>',        rot:false},
-  {k:'truck',n:'貨車',g:'🚚', html:'<div class="veh">🚚</div>',        rot:false},
-  {k:'taxi', n:'計程車',g:'🚕',html:'<div class="veh">🚕</div>',       rot:false},
-  {k:'dot',  n:'圓點',g:'🔵', html:'<div class="veh" style="font-size:20px">🔵</div>', rot:false},
+  {k:'arrow',n:'箭頭',g:'➤',  html:'<div class="arrow"></div>', rot:true},
+  {k:'car',  n:'汽車',g:'🚗', html:'<svg class="vsvg" viewBox="0 0 26 44"><path class="body" d="M13 2c-5 0-8 3-8 9v22c0 6 3 9 8 9s8-3 8-9V11c0-6-3-9-8-9z"/><path d="M8.5 11c0-3 2-4.5 4.5-4.5S17.5 8 17.5 11l-.7 4.5H9.2z" fill="#d6e8ff"/><rect x="8.5" y="31" width="9" height="5" rx="2" fill="#aecdf2"/></svg>', rot:true},
+  {k:'moto', n:'機車',g:'🏍️', html:'<svg class="vsvg" viewBox="0 0 26 44"><circle cx="13" cy="9" r="4.6" class="body"/><rect class="body" x="10.4" y="9" width="5.2" height="27" rx="2.6"/><rect class="body" x="5.5" y="12" width="15" height="3.6" rx="1.8"/><circle cx="13" cy="36" r="3.6" class="body"/></svg>', rot:true},
+  {k:'truck',n:'貨車',g:'🚚', html:'<svg class="vsvg" viewBox="0 0 26 46"><rect class="body" x="5" y="3" width="16" height="40" rx="4"/><rect x="7" y="6" width="12" height="7" rx="2" fill="#d6e8ff"/><rect x="6.5" y="19" width="13" height="2.4" rx="1.2" fill="#fff" opacity=".65"/></svg>', rot:true},
+  {k:'taxi', n:'計程車',g:'🚕',html:'<svg class="vsvg taxi" viewBox="0 0 26 44"><path class="body" d="M13 2c-5 0-8 3-8 9v22c0 6 3 9 8 9s8-3 8-9V11c0-6-3-9-8-9z"/><path d="M8.5 11c0-3 2-4.5 4.5-4.5S17.5 8 17.5 11l-.7 4.5H9.2z" fill="#4a3c00"/><rect x="8.5" y="31" width="9" height="5" rx="2" fill="#5c4b00"/></svg>', rot:true},
+  {k:'dot',  n:'圓點',g:'🔵', html:'<svg class="vsvg" viewBox="0 0 26 26" style="height:26px"><circle cx="13" cy="13" r="7" class="body"/></svg>', rot:false},
 ];
 let carIcon=localStorage.getItem('carIcon')||'arrow';
 function iconObj(){ return CAR_ICONS.find(x=>x.k===carIcon)||CAR_ICONS[0]; }
@@ -582,8 +587,11 @@ try{
   carEl=document.createElement('div'); carEl.className='car-marker'; carEl.innerHTML=iconObj().html;
   carMarker=new maplibregl.Marker({element:carEl,rotationAlignment:'viewport'}).setLngLat([curLon,curLat]).addTo(map);
   whenStyleLoaded(onStyleReady);  // 初次載入補上 3D 建築 + 路線圖層
-  map.on('dragstart',()=>{follow=false;$('followBtn').style.display='block';});
-  map.on('rotatestart',()=>{follow=false;$('followBtn').style.display='block';});
+  // 只有「使用者」操作(有 originalEvent)才取消跟隨；程式自己 easeTo 轉向不算，否則車頭朝上會秒關跟隨
+  const userMove=e=>{ if(e && e.originalEvent){ follow=false; $('followBtn').style.display='block'; } };
+  map.on('dragstart',userMove);
+  map.on('rotatestart',userMove);
+  map.on('pitchstart',userMove);
 }catch(e){
   $('mapMsg').style.display='flex';
   $('mapMsg').textContent='地圖載入失敗（需要網路連線）';
