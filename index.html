@@ -37,6 +37,17 @@
   #zoomBtns button{background:none;border:none;color:#ddd;font-size:20px;width:42px;height:40px;font-weight:600;}
   #zoomBtns button:first-child{border-bottom:1px solid #2a2a2e;}
   #zoomBtns button:active{background:#2c2c30;}
+  /* 地圖風格切換 */
+  #layerBtn{position:fixed;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 200px);z-index:1000;
+    width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#ddd;border:none;border-radius:12px;}
+  #layerBtn:active{background:#2c2c30;}
+  #layerPanel{position:fixed;left:62px;top:calc(max(12px,env(safe-area-inset-top)) + 196px);z-index:1100;
+    display:none;flex-direction:column;padding:6px;border-radius:14px;min-width:150px;}
+  #layerPanel.open{display:flex;}
+  #layerPanel button{background:none;border:none;color:#ddd;text-align:left;padding:9px 12px;border-radius:9px;font-size:13px;white-space:nowrap;}
+  #layerPanel button.act{background:var(--acc1);color:#fff;}
+  body.sport #layerPanel button.act{background:#ff2d2d;}
+  #layerPanel button:active{background:#2c2c30;}
   #hdgBtn{position:fixed;left:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 74px);z-index:1000;
     color:#ddd;font-size:12px;letter-spacing:1px;padding:10px 13px;border:none;}
   #hdgBtn.on{color:#fff;border:1px solid var(--acc1);box-shadow:0 0 12px rgba(79,163,255,.25);}
@@ -186,6 +197,8 @@
 <div id="mapMsg"></div>
 <div id="vignette"></div>
 <div id="zoomBtns" class="pill"><button id="zin">＋</button><button id="zout">－</button></div>
+<button id="layerBtn" class="pill" title="切換地圖風格">🗺️</button>
+<div id="layerPanel" class="pill"></div>
 
 <div id="topLeft">
   <div class="pill" id="clock">--:--</div>
@@ -241,7 +254,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px">© OSM © CARTO · v12</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OSM · CARTO · v13</span>
 </div>
 <button id="hdgBtn" class="pill on" title="切換 車頭朝上 / 北朝上">🧭 車頭朝上</button>
 <button id="followBtn" title="回到目前位置">◎</button>
@@ -444,9 +457,39 @@ function applyRot(target){
   rotCur+=delta;
   $('map').style.transform='translate(-50%,-50%) rotate('+rotCur+'deg)';
 }
+/* 地圖風格(全部免金鑰、可直接用的 raster tiles) */
+const MAP_STYLES=[
+  {k:'dark',   n:'🌑 深色',        u:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',            o:{maxZoom:20,subdomains:'abcd'}, a:'© OSM · CARTO'},
+  {k:'light',  n:'🌕 淺色乾淨',     u:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',           o:{maxZoom:20,subdomains:'abcd'}, a:'© OSM · CARTO'},
+  {k:'voyager',n:'🗺️ 街道 · 導航',  u:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', o:{maxZoom:20,subdomains:'abcd'}, a:'© OSM · CARTO'},
+  {k:'osm',    n:'🛣️ 經典街道',     u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                       o:{maxZoom:19}, a:'© OpenStreetMap'},
+  {k:'sat',    n:'🛰️ 衛星空拍',     u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', o:{maxZoom:19}, a:'© Esri'},
+];
+const APP_VER='v13';
+let tileLayer=null, mapStyle=localStorage.getItem('mapStyle')||'dark';
+function setMapStyle(k){
+  const s=MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0];
+  if(map){
+    if(tileLayer) map.removeLayer(tileLayer);
+    tileLayer=L.tileLayer(s.u,s.o).addTo(map); tileLayer.setZIndex(0);
+  }
+  mapStyle=s.k; localStorage.setItem('mapStyle',s.k);
+  const cr=$('mapCredit'); if(cr) cr.textContent=s.a+' · '+APP_VER;
+  document.querySelectorAll('#layerPanel button').forEach(b=>b.classList.toggle('act',b.dataset.k===s.k));
+}
+(function buildLayerPanel(){
+  const panel=$('layerPanel');
+  MAP_STYLES.forEach(s=>{
+    const b=document.createElement('button'); b.textContent=s.n; b.dataset.k=s.k;
+    b.onclick=()=>{ setMapStyle(s.k); panel.classList.remove('open'); };
+    panel.appendChild(b);
+  });
+  $('layerBtn').onclick=e=>{ e.stopPropagation(); panel.classList.toggle('open'); };
+  document.addEventListener('pointerdown',e=>{ if(!panel.contains(e.target)&&e.target!==$('layerBtn')) panel.classList.remove('open'); });
+})();
 try{
   map=L.map('map',{zoomControl:false,attributionControl:false}).setView([curLat,curLon],16);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+  setMapStyle(mapStyle);
   carMk=L.marker([curLat,curLon],{icon:L.divIcon({className:'car-marker',html:'<div class="arrow"></div>'})}).addTo(map);
   map.on('dragstart',()=>{follow=false;$('followBtn').style.display='block';applyRot(0);});
 }catch(e){
