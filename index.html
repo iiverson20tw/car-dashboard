@@ -158,6 +158,7 @@
     filter:drop-shadow(0 0 6px rgba(79,163,255,.8));}
   /* 俯視車標(SVG)：會轉向行進方向，像 Google 導航 */
   .car-marker .vsvg{height:50px;width:auto;overflow:visible;transition:transform .3s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.55));}
+  .car-marker .vsvg.nav{height:38px;}
   .car-marker .vsvg .body{fill:var(--acc1);stroke:#fff;stroke-width:1.6;stroke-linejoin:round;}
   body.sport .car-marker .vsvg .body{fill:#ff2d2d;}
   .car-marker .vsvg.taxi .body{fill:#f7c331;}
@@ -268,7 +269,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v18</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v19</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -528,7 +529,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v18';
+const APP_VER='v19';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -550,7 +551,11 @@ function setMapStyle(k){
 })();
 $('tiltBtn').onclick=()=>{ is3D=!is3D; localStorage.setItem('map3D',is3D?'1':'0'); apply3D(); };
 
-/* ── 車標圖示(可自選：箭頭/汽車/機車…，存 localStorage)。SVG 皆俯視、車頭朝上(0°) ── */
+/* ── 車標圖示(可自選：導航箭頭/汽車/機車…，存 localStorage)。SVG 皆俯視、車頭朝上(0°) ── */
+// 乾淨的導航指標(像 Google/Apple 地圖的方向箭頭)
+function NAV_SVG(){return '<svg class="vsvg nav" viewBox="0 0 36 40">'
+  +'<path class="body" d="M18 1.5c1 0 1.8.6 2.4 1.9L32.5 34c1 2.8-1.9 5.2-4.7 4L18 33.8 8.2 38c-2.8 1.2-5.7-1.2-4.7-4L15.6 3.4C16.2 2.1 17 1.5 18 1.5z"/>'
+  +'<path d="M18 6l8.5 23q-8.5-3.6-17 0z" fill="rgba(255,255,255,.25)"/></svg>';}
 function CAR_SVG(cls){return '<svg class="vsvg'+cls+'" viewBox="0 0 40 74">'
   +'<rect x="1.5" y="15" width="6" height="13" rx="3" fill="#181818"/><rect x="32.5" y="15" width="6" height="13" rx="3" fill="#181818"/>'
   +'<rect x="1.5" y="47" width="6" height="13" rx="3" fill="#181818"/><rect x="32.5" y="47" width="6" height="13" rx="3" fill="#181818"/>'
@@ -573,14 +578,15 @@ function TRUCK_SVG(){return '<svg class="vsvg" viewBox="0 0 40 86">'
   +'<rect x="9" y="30" width="22" height="50" rx="2" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.4"/>'
   +'<line x1="20" y1="30" x2="20" y2="80" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/></svg>';}
 const CAR_ICONS=[
-  {k:'arrow',n:'箭頭',g:'➤',  html:'<div class="arrow"></div>', rot:true},
+  {k:'nav',  n:'導航箭頭',g:'➤',html:NAV_SVG(),      rot:true},
+  {k:'arrow',n:'簡易箭頭',g:'▲',html:'<div class="arrow"></div>', rot:true},
   {k:'car',  n:'汽車',g:'🚗', html:CAR_SVG(''),      rot:true},
   {k:'moto', n:'機車',g:'🏍️', html:MOTO_SVG(),       rot:true},
   {k:'truck',n:'貨車',g:'🚚', html:TRUCK_SVG(),      rot:true},
   {k:'taxi', n:'計程車',g:'🚕',html:CAR_SVG(' taxi'), rot:true},
   {k:'dot',  n:'圓點',g:'🔵', html:'<svg class="vsvg" viewBox="0 0 26 26" style="height:26px;width:26px"><circle cx="13" cy="13" r="7.5" class="body"/><circle cx="13" cy="13" r="3" fill="#fff"/></svg>', rot:false},
 ];
-let carIcon=localStorage.getItem('carIcon')||'arrow';
+let carIcon=localStorage.getItem('carIcon')||'nav';
 function iconObj(){ return CAR_ICONS.find(x=>x.k===carIcon)||CAR_ICONS[0]; }
 function setCarIcon(k){
   carIcon=k; localStorage.setItem('carIcon',k);
