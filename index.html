@@ -276,7 +276,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v26</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v27</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -401,30 +401,26 @@ function setSpd(kmh){
   engineUpdate(kmh);   // 引擎聲浪隨速度變化
 }
 
-/* ── 引擎聲浪：用真實錄音引擎 loop(CC0)依 RPM 交叉淡入，聲音才像真引擎(合成波太像電子音) ── */
-// 6 段實錄 loop，主頻由低到高(怠速→高轉)；依 RPM 在相鄰兩段間 crossfade，並微調 playbackRate 讓音高連續
-const ENG_FILES=['eng0','eng1','eng2','eng3','eng4','eng5'];
-const ENG_BASE=[42.8,60,64.5,69.8,72.9,76.2];   // 各段主頻(Hz)
-let engine=null, engBuffers=null, engLoading=false;
-async function loadEngBuffers(ctx){
-  if(engBuffers) return engBuffers;
-  const arr=await Promise.all(ENG_FILES.map(n=>fetch('sounds/'+n+'.wav').then(r=>r.arrayBuffer()).then(a=>ctx.decodeAudioData(a))));
-  engBuffers=arr; return arr;
+/* ── 引擎聲浪：真實 V8 跑車引擎 loop(穩定 375Hz)依 RPM 變速(playbackRate)→低轉低沉、高轉高亢 ──
+   音源:Generic V8 Engine Sound by Meehdrescher Studios / OpenGameArt (CC-BY-SA 4.0) */
+let engine=null, engBuf=null, engLoading=false;
+async function loadEngBuf(ctx){
+  if(engBuf) return engBuf;
+  const a=await fetch('sounds/v8.wav').then(r=>r.arrayBuffer());
+  engBuf=await ctx.decodeAudioData(a); return engBuf;
 }
 async function startEngine(){
   if(engine||engLoading) return;
   const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
   engLoading=true;
   const ctx=new AC();
-  let bufs; try{ bufs=await loadEngBuffers(ctx); }catch(e){ engLoading=false; try{ctx.close();}catch(_){}; return; }
+  let buf; try{ buf=await loadEngBuf(ctx); }catch(e){ engLoading=false; try{ctx.close();}catch(_){}; return; }
   const master=ctx.createGain(); master.gain.value=0.0001;
-  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1200; lp.Q.value=0.6;
+  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1500; lp.Q.value=0.4;
   const comp=ctx.createDynamicsCompressor();
-  lp.connect(master); master.connect(comp); comp.connect(ctx.destination);
-  // 每段 loop 一路：BufferSource(loop) → gain → lp
-  const layers=bufs.map((b,i)=>{ const s=ctx.createBufferSource(); s.buffer=b; s.loop=true;
-    const g=ctx.createGain(); g.gain.value=0; s.connect(g); g.connect(lp); s.start(); return {s,g,base:ENG_BASE[i]}; });
-  engine={ctx,master,lp,layers,rpm:850};
+  const src=ctx.createBufferSource(); src.buffer=buf; src.loop=true;
+  src.connect(lp); lp.connect(master); master.connect(comp); comp.connect(ctx.destination); src.start();
+  engine={ctx,src,master,lp,rpm:850};
   engLoading=false;
   if(ctx.state==='suspended') ctx.resume();
 }
@@ -433,26 +429,17 @@ function stopEngine(){ if(!engine) return; const e=engine; engine=null;
 }
 function engineUpdate(kmh){
   if(!engine) return;
-  const e=engine, t=e.ctx.currentTime, N=e.layers.length;
+  const e=engine, t=e.ctx.currentTime;
   const gears=[0,22,42,66,96,132,999];               // 換檔速度界線(km/h)
   let gi=0; while(gi<gears.length-1 && kmh>=gears[gi+1]) gi++;
   const lo=gears[gi], hi=gears[gi+1], frac=Math.min(1,Math.max(0,(kmh-lo)/(hi-lo)));
   const idle=850, redline=6800;
   const targetRpm=(kmh<1.5)? idle : idle+(redline-idle)*frac;
   e.rpm+=(targetRpm-e.rpm)*0.15;                       // 平滑(換檔 RPM 掉落也順)
-  const rpm=e.rpm, load=(rpm-idle)/(redline-idle);     // 0..1
-  // RPM → loop 位置(0..N-1)，在相鄰兩段 crossfade
-  const pos=Math.min(N-1,Math.max(0,load*(N-1)));
-  const i0=Math.floor(pos), i1=Math.min(N-1,i0+1), fr=pos-i0;
-  // 目標音高：兩段 base 內插；各段 playbackRate=目標/自己base→音高連續
-  const targetHz=e.layers[i0].base*(1-fr)+e.layers[i1].base*fr;
-  e.layers.forEach((L,i)=>{
-    const gain=(i===i0)?(1-fr):(i===i1?fr:0);
-    L.g.gain.setTargetAtTime(gain, t, 0.08);
-    if(gain>0.001){ const rate=Math.min(2.2,Math.max(0.5,targetHz/L.base)); L.s.playbackRate.setTargetAtTime(rate, t, 0.08); }
-  });
-  e.lp.frequency.setTargetAtTime(700+load*5000, t, 0.08);   // 高轉更亮
-  e.master.gain.setTargetAtTime(0.5+load*0.45, t, 0.08);    // 高轉更大聲
+  const load=(e.rpm-idle)/(redline-idle);              // 0..1
+  e.src.playbackRate.setTargetAtTime(0.5+load*1.15, t, 0.1);   // 變速=改轉速音高，低轉低沉/高轉高亢
+  e.lp.frequency.setTargetAtTime(600+load*7000, t, 0.1);       // 高轉更亮(排氣打開)
+  e.master.gain.setTargetAtTime(0.32+load*0.5, t, 0.09);       // 高轉更大聲
 }
 (function(){ const b=$('sndBtn'); if(!b) return;
   b.onclick=()=>{ if(engine){ stopEngine(); b.textContent='🔇'; b.classList.remove('on'); }
@@ -651,7 +638,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v26';
+const APP_VER='v27';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
