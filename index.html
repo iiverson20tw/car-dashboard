@@ -275,12 +275,14 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v23</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v24</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/three@0.136.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.136.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 const MAXSPD=180, ARC=414;
 const $=id=>document.getElementById(id);
@@ -509,7 +511,55 @@ function ensureRouteLayer(){
     layout:{'line-cap':'round','line-join':'round'},
     paint:{'line-color':document.body.classList.contains('sport')?'#ff2d2d':'#4fa3ff','line-width':6,'line-opacity':.85}});
 }
-function onStyleReady(){ ensure3DBuildings(); ensureRouteLayer(); if(route) drawRoute(false); }
+/* ── 真 3D 立體車模型(three.js + Kenney CC0 低模)：貼在地圖上，2D 俯視、3D 傾斜都是真幾何，不會變形 ── */
+let three={renderer:null,scene:null,camera:null,car:null,curModel:null,scaleUnits:1,visible:false};
+const MODEL_LEN=4.6; // 目標車長(公尺)
+function loadCarModel(name){
+  three.curModel=name;
+  if(!three.scene||typeof THREE==='undefined') return;
+  new THREE.GLTFLoader().load('models/'+name+'.glb',g=>{
+    if(three.car){ three.scene.remove(three.car); three.car=null; }
+    const model=g.scene;
+    const box=new THREE.Box3().setFromObject(model),size=new THREE.Vector3(),ctr=new THREE.Vector3();
+    box.getSize(size); box.getCenter(ctr);
+    model.position.set(-ctr.x,-(ctr.y-size.y/2),-ctr.z);   // x,z 置中、底盤貼地(glTF y=0)
+    const wrap=new THREE.Group(); wrap.add(model);
+    three.modelSizeZ=size.z;                                 // 車長(模型單位)，render 依縮放算固定螢幕大小
+    three.car=wrap; three.scene.add(wrap);
+    if(map) map.triggerRepaint();
+  });
+}
+const carModelLayer={
+  id:'car-3d',type:'custom',renderingMode:'3d',
+  onAdd(m,gl){
+    if(typeof THREE==='undefined') return;
+    if(!three.scene){
+      three.camera=new THREE.Camera(); three.scene=new THREE.Scene();
+      // 模型在 scene 空間維持 glTF 座標(Y 上=車頂)，方位旋轉是在投影矩陣做→打光與車頭方向無關，亮度穩定
+      three.scene.add(new THREE.HemisphereLight(0xffffff,0x555a63,1.05)); // 天空白/地面灰，車頂恆亮
+      const key=new THREE.DirectionalLight(0xffffff,0.8); key.position.set(0.4,1,0.6); three.scene.add(key); // 上方偏前，給車身一點立體陰影
+    }
+    three.renderer=new THREE.WebGLRenderer({canvas:m.getCanvas(),context:gl,antialias:true});
+    three.renderer.autoClear=false;
+    if(three.curModel) loadCarModel(three.curModel);
+  },
+  render(gl,matrix){
+    if(!three.visible||!three.car||!three.renderer) return;
+    const merc=maplibregl.MercatorCoordinate.fromLngLat([curLon,curLat],0);
+    // 縮放到固定螢幕大小(車模型≈CAR_PX 像素長)，不隨 zoom 變小 → 像 Google 導航車(非實際比例)
+    const CAR_PX=76;
+    const scale=CAR_PX/(three.modelSizeZ*512*Math.pow(2,map.getZoom()));
+    // 先繞車輛垂直軸(glTF Y)做 yaw=方位，再 rotX(90°) 把車立起貼地→車頭朝行進方向、車頂恆朝上(亮度穩定)
+    const rotX=new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1,0,0),Math.PI/2);
+    const rotY=new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0,1,0),Math.PI-curHead*Math.PI/180);
+    const l=new THREE.Matrix4().makeTranslation(merc.x,merc.y,merc.z)
+      .scale(new THREE.Vector3(scale,-scale,scale)).multiply(rotX).multiply(rotY);
+    three.camera.projectionMatrix=new THREE.Matrix4().fromArray(matrix).multiply(l);
+    three.renderer.resetState(); three.renderer.render(three.scene,three.camera);
+  }
+};
+function ensureCarModelLayer(){ if(map&&typeof THREE!=='undefined'&&!map.getLayer('car-3d')) map.addLayer(carModelLayer); }
+function onStyleReady(){ ensure3DBuildings(); ensureRouteLayer(); ensureCarModelLayer(); if(route) drawRoute(false); }
 // 可靠等待 style 載入完(style.load/styledata 事件在 setStyle 後時機不穩，直接輪詢 isStyleLoaded)
 function whenStyleLoaded(cb){
   if(!map) return;
@@ -541,7 +591,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v23';
+const APP_VER='v24';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -589,27 +639,38 @@ function TRUCK_SVG(){return '<svg class="vsvg" viewBox="0 0 40 86">'
   +'<path d="M11 6Q20 3.5 29 6L27.5 13h-15z" fill="#d6e8ff"/>'
   +'<rect x="9" y="30" width="22" height="50" rx="2" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.4"/>'
   +'<line x1="20" y1="30" x2="20" y2="80" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/></svg>';}
-// 真實俯視車圖(CC0, Unlucky Studio 渲染圖，非手繪)：front 朝上(0°)，隨行進方向旋轉
+// 車標選項：①真 3D 模型(three.js/Kenney CC0，2D俯視+3D傾斜都不變形) ②平面俯視渲染圖(Unlucky Studio CC0) ③箭頭/圓點
 const CAR_ICONS=[
-  {k:'audi',     n:'紅色轎跑',g:'🚗', img:'audi',      rot:true},
-  {k:'viper',    n:'黑色跑車',g:'🏎️', img:'viper',     rot:true},
-  {k:'orange',   n:'橘色轎車',g:'🚙', img:'orange',    rot:true},
-  {k:'pickup',   n:'藍色貨卡',g:'🛻', img:'pickup',    rot:true},
-  {k:'van',      n:'白色廂型車',g:'🚐', img:'van',      rot:true},
-  {k:'taxi',     n:'計程車',  g:'🚕', img:'taxi',      rot:true},
-  {k:'police',   n:'警車',    g:'🚓', img:'police',    rot:true},
-  {k:'truck',    n:'大貨車',  g:'🚚', img:'truck',     rot:true},
-  {k:'ambulance',n:'救護車',  g:'🚑', img:'ambulance', rot:true},
+  {k:'m_sedan',    n:'3D 房車',  g:'🚗', model:'sedan',           rot:true},
+  {k:'m_sports',   n:'3D 跑車',  g:'🏎️', model:'sedan-sports',     rot:true},
+  {k:'m_suv',      n:'3D 休旅車',g:'🚙', model:'suv',             rot:true},
+  {k:'m_hatch',    n:'3D 掀背車',g:'🚗', model:'hatchback-sports', rot:true},
+  {k:'m_taxi',     n:'3D 計程車',g:'🚕', model:'taxi',            rot:true},
+  {k:'m_police',   n:'3D 警車',  g:'🚓', model:'police',          rot:true},
+  {k:'m_ambulance',n:'3D 救護車',g:'🚑', model:'ambulance',       rot:true},
+  {k:'m_truck',    n:'3D 貨車',  g:'🚚', model:'truck',           rot:true},
+  {k:'audi',     n:'平面·紅轎跑',g:'🖼️', img:'audi',      rot:true},
+  {k:'orange',   n:'平面·橘轎車',g:'🖼️', img:'orange',    rot:true},
+  {k:'van',      n:'平面·廂型車',g:'🖼️', img:'van',       rot:true},
   {k:'nav',      n:'導航箭頭',g:'➤',  html:NAV_SVG(),  rot:true},
   {k:'dot',      n:'圓點',    g:'🔵', html:'<svg class="vsvg" viewBox="0 0 26 26" style="height:26px;width:26px"><circle cx="13" cy="13" r="7.5" class="body"/><circle cx="13" cy="13" r="3" fill="#fff"/></svg>', rot:false},
 ];
-let carIcon=localStorage.getItem('carIcon')||'audi';
+let carIcon=localStorage.getItem('carIcon')||'m_sedan';
 function iconObj(){ return CAR_ICONS.find(x=>x.k===carIcon)||CAR_ICONS[0]; }
-function iconHtml(){ const o=iconObj(); return o.img?('<img class="vcar" src="icons/car_'+o.img+'.png" alt="">'):o.html; }
+function iconHtml(){ const o=iconObj(); return o.img?('<img class="vcar" src="icons/car_'+o.img+'.png" alt="">'):(o.html||''); }
 function setCarIcon(k){
   carIcon=k; localStorage.setItem('carIcon',k);
-  if(carEl) carEl.innerHTML=iconHtml();
-  const ib=$('iconBtn'); if(ib) ib.textContent=iconObj().g;
+  const o=iconObj();
+  if(o.model){                        // 真 3D 模型：隱藏平面 DOM 車標，開 three.js 圖層
+    three.visible=true; loadCarModel(o.model);
+    if(carEl) carEl.innerHTML='';
+    if(map) map.triggerRepaint();
+  }else{                              // 平面/箭頭：關 3D 圖層，用 DOM 車標
+    three.visible=false;
+    if(carEl) carEl.innerHTML=iconHtml();
+    if(map) map.triggerRepaint();
+  }
+  const ib=$('iconBtn'); if(ib) ib.textContent=o.g;
   document.querySelectorAll('#iconPanel button[data-k]').forEach(b=>b.classList.toggle('act',b.dataset.k===k));
   mapTick(false);
 }
@@ -664,6 +725,7 @@ function mapTick(recenter){
   // 車標貼地圖平面(rotationAlignment=map)：setRotation 用地理方位 curHead，MapLibre 會自動扣掉地圖 bearing
   // →車頭朝上模式(bearing=curHead)畫面上正立；北方朝上(bearing=0)則指向行進方向；3D 時自動隨地圖傾斜
   if(carMarker){ carMarker.setLngLat([curLon,curLat]); carMarker.setRotation(iconObj().rot?curHead:0); }
+  if(three.visible) map.triggerRepaint();   // 3D 模型讀 curLon/curLat/curHead，位置更新要重繪
   const b=(headingUp&&follow)?curHead:0;
   if(follow)map.easeTo({center:[curLon,curLat],bearing:b,duration:recenter?600:900});
 }
