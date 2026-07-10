@@ -275,7 +275,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v29</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v30</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -491,6 +491,7 @@ let route=null,stepIdx=0;   // 導航路線(mapTick 會用到，須在 mapTick �
 let headingUp=localStorage.getItem('headingUp')!=='0'; // 預設車頭朝上
 let is3D=localStorage.getItem('map3D')==='1';           // 3D 立體(pitch 傾斜 + 建築 fill-extrusion)
 const PITCH_3D=55;
+const NAV_PITCH=62;   // 導航模式的傾斜角(比一般 3D 更斜，像車機導航前方視角)
 function apply3D(){
   const b=$('tiltBtn'); if(b){ b.textContent=is3D?'3D':'2D'; b.classList.toggle('on',is3D); }
   if(map) map.easeTo({pitch:is3D?PITCH_3D:0,duration:500});
@@ -593,7 +594,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v29';
+const APP_VER='v30';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -727,12 +728,18 @@ function mapTick(recenter){
   // 導航中且跟隨：方向以「路線前方」為準(即使停著也朝目的地方向前進)，而不是靜止不動的 GPS 方位
   const rh=(route&&follow)?routeHeadingAt(curLat,curLon):null;
   hdgNow=(rh!=null)?rh:curHead;
-  // 車標貼地圖平面(rotationAlignment=map)：setRotation 用地理方位 hdgNow，MapLibre 會自動扣掉地圖 bearing
-  // →車頭朝上模式(bearing=hdgNow)畫面上正立；北方朝上(bearing=0)則指向前進方向；3D 時自動隨地圖傾斜
   if(carMarker){ carMarker.setLngLat([curLon,curLat]); carMarker.setRotation(iconObj().rot?hdgNow:0); }
   if(three.visible) map.triggerRepaint();   // 3D 模型讀 curLon/curLat/hdgNow，位置更新要重繪
-  const b=(headingUp&&follow)?hdgNow:0;
-  if(follow)map.easeTo({center:[curLon,curLat],bearing:b,duration:recenter?600:900});
+  if(!follow) return;
+  // 導航模式(有路線)=前方朝上(bearing=路線方向)+傾斜3D+車子放偏下(留空間看前方路)，像車機導航
+  const nav=!!route;
+  const b=(nav||headingUp)?hdgNow:0;
+  const pitch=nav?NAV_PITCH:(is3D?PITCH_3D:0);
+  const h=(map.getContainer()&&map.getContainer().clientHeight)||map.getCanvas().clientHeight||400;
+  const pad=nav?{top:Math.round(h*0.55),bottom:0,left:0,right:0}:{top:0,bottom:0,left:0,right:0};
+  const opts={center:[curLon,curLat],bearing:b,pitch,padding:pad,duration:recenter?600:900};
+  if(nav&&recenter) opts.zoom=16.8;   // 進導航/回正時給合適縮放，但行進中不搶使用者縮放
+  map.easeTo(opts);
 }
 
 /* ── 導航（Nominatim 搜尋 + OSRM 路線） ── */
@@ -794,6 +801,7 @@ $('navEnd').onclick=()=>{
   route=null;$('navInfo').style.display='none';
   if(map&&map.getSource('route'))map.getSource('route').setData({type:'FeatureCollection',features:[]});
   if(destMarker){destMarker.remove();destMarker=null;}
+  mapTick(true);   // 結束導航→回復一般視角(取消傾斜/偏移/前方朝上)
 };
 function pointAlongRoute(d){
   const {coords,cum}=route;
