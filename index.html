@@ -130,25 +130,31 @@
     filter:drop-shadow(0 0 6px rgba(79,163,255,.8));}
   body.sport .car-marker .arrow{background:#ff2d2d;filter:drop-shadow(0 0 8px rgba(255,45,45,.9));}
 
-  /* 手機直向時，不顯示變形的儀表板，改show「請橫放」提示。
-     原因：iOS Safari 無法用程式強制轉螢幕。CSS硬轉90°會撞到瀏海/動態島且拿直放看很怪，
-     所以改成：直向→引導使用者橫放(並提示關閉方向鎖定)；橫放→顯示原生橫向儀表板(最順、不撞瀏海)。
-     只在觸控裝置(pointer:coarse)判斷，桌機視窗變窄不受影響。 */
+  /* 手機方向鎖定開著也要橫向：直向時把整個儀表板轉90°(force landscape)。
+     iOS Safari 無法用程式強制轉螢幕，所以用 CSS 轉。#stage 被 transform 後成為內部
+     fixed 元素的定位基準，整組一起轉。--lockInset 是畫面兩端留白(對應手機瀏海/home列)，
+     避免控制項被切到；地圖用負 margin 補回全螢幕鋪滿。方向由 body.rotA/rotB 決定，可用翻轉鈕切。
+     只在觸控裝置(pointer:coarse)生效，桌機不受影響。 */
+  /* 強制橫向時，四邊留白避免撞到瀏海/狀態列/home列。用 env() 自動抓瀏海高度，
+     沒瀏海的手機退回 22px。#stage 縮小後「繞中心」旋轉→四邊留白均勻、與旋轉方向無關(翻轉也安全)。 */
+  :root{ --lockInset: max(env(safe-area-inset-top, 0px), 22px); }
   #stage{position:fixed;inset:0;}
-  #rotateHint{display:none;}
-  @keyframes rotateNudge{0%,15%{transform:rotate(0)}55%,75%{transform:rotate(90deg)}100%{transform:rotate(90deg)}}
+  #flipBtn{display:none;}
   @media (orientation:portrait) and (pointer:coarse){
-    #stage{display:none;}
-    #rotateHint{
-      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
-      position:fixed;inset:0;z-index:5000;
-      background:radial-gradient(120% 100% at 50% 0%,#0f2440 0%,#000 70%);
-      color:#fff;text-align:center;padding:30px;
+    #stage{
+      inset:auto;top:50%;left:50%;
+      width:calc(100vh - 2*var(--lockInset));
+      height:calc(100vw - 2*var(--lockInset));
+      transform-origin:center center;
     }
-    #rotateHint .ico{font-size:72px;animation:rotateNudge 2.4s ease-in-out infinite}
-    #rotateHint .t{font-size:21px;font-weight:800;letter-spacing:1px}
-    #rotateHint .d{font-size:13px;color:#9aa8bd;line-height:1.9;max-width:290px}
-    #rotateHint .d b{color:#ffd166}
+    body:not(.rotB) #stage{ transform:translate(-50%,-50%) rotate(-90deg); } /* 逆時針(預設) */
+    body.rotB #stage{ transform:translate(-50%,-50%) rotate(90deg); }        /* 順時針 */
+    #flipBtn{
+      display:flex;align-items:center;gap:6px;
+      position:fixed;z-index:1200;top:10px;right:10px;
+      font-size:12px;color:#ddd;padding:8px 12px;border:none;
+    }
+    #hint{display:none;}
   }
 </style>
 </head>
@@ -168,6 +174,8 @@
   <button id="mNormal" class="act">NORMAL</button>
   <button id="mSport">SPORT</button>
 </div>
+
+<button id="flipBtn" class="pill" title="翻轉畫面方向（配合你的手機架擺法）">🔄 翻轉</button>
 
 <div id="navBar">
   <input id="dest" type="text" placeholder="搜尋目的地（地址或地標）" autocomplete="off">
@@ -213,13 +221,6 @@
 <button id="hdgBtn" class="pill on" title="切換 車頭朝上 / 北朝上">🧭 車頭朝上</button>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
-
-<div id="rotateHint">
-  <div class="ico">📱</div>
-  <div class="t">請將手機橫放</div>
-  <div class="d">這是車用橫向儀表板，橫放才是完整畫面。<br>
-  如果手機轉不過去，請從右上角下拉<b>控制中心</b>，<br>把<b>「螢幕方向鎖定 🔒」關掉</b>，再把手機打橫。</div>
-</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -468,10 +469,19 @@ $('demo').addEventListener('click',keepAwake,{once:true});
 
 if(localStorage.getItem('dashMode')==='sport')setMode(true);
 
+// 強制橫向的翻轉方向（配合手機架擺法，避免上下顛倒），記在 localStorage
+if(localStorage.getItem('rotDir')==='B')document.body.classList.add('rotB');
+$('flipBtn').addEventListener('click',()=>{
+  document.body.classList.toggle('rotB');
+  localStorage.setItem('rotDir',document.body.classList.contains('rotB')?'B':'A');
+  setTimeout(relayoutMap,350);
+});
+
 // 轉向/改變視窗大小後，#stage 尺寸會變，Leaflet 要重新量一次才不會破圖
 function relayoutMap(){ if(map){ map.invalidateSize(); if(follow) map.setView([curLat,curLon],map.getZoom()); } }
 window.addEventListener('resize',()=>setTimeout(relayoutMap,300));
 window.addEventListener('orientationchange',()=>setTimeout(relayoutMap,400));
+setTimeout(relayoutMap,500); // 初次載入若在強制橫向，地圖需重量一次
 </script>
 </body>
 </html>
