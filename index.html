@@ -382,9 +382,9 @@ let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('settings')||'{}'));}catch(_){}
 function saveS(){localStorage.setItem('settings',JSON.stringify(S));}
 let useMph=S.mph;
-// 螢幕方向偏好：'land'=強制橫向(車架用，預設，即使手機直向鎖定也轉成橫)；'auto'=原生直向版面
+// 螢幕方向偏好：'auto'=跟隨手機(直向就直向、橫向就橫向，預設)；'land'=強制橫向(車架用，直向也轉成橫)
 // 須在 buildSetPanel() 之前宣告(那裡會讀 orient)，避免 TDZ
-let orient=localStorage.getItem('orient')||'land';
+let orient=localStorage.getItem('orient')||'auto';
 function applyOrient(){
   document.body.classList.toggle('forceland', orient==='land');
   if(typeof relayoutMap==='function') setTimeout(relayoutMap,350);
@@ -776,7 +776,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v32';
+const APP_VER='v33';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -1210,7 +1210,7 @@ function buildSetPanel(){
   // 螢幕方向
   secH('螢幕方向');
   const orow=document.createElement('div');orow.className='sr';orow.id='orientRow';orow.style.gap='8px';p.appendChild(orow);
-  [['land','↔ 橫向(車架)'],['auto','↕ 直向']].forEach(([v,txt])=>{
+  [['auto','↕ 跟隨手機'],['land','↔ 強制橫向']].forEach(([v,txt])=>{
     const b=document.createElement('div');b.className='lim'+(orient===v?' act':'');b.textContent=txt;b.dataset.v=v;
     b.style.flex='1';
     b.onclick=()=>{orient=v;localStorage.setItem('orient',v);orow.querySelectorAll('.lim').forEach(x=>x.classList.toggle('act',x.dataset.v===v));applyOrient();};
