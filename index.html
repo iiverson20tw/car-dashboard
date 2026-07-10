@@ -130,20 +130,25 @@
     filter:drop-shadow(0 0 6px rgba(79,163,255,.8));}
   body.sport .car-marker .arrow{background:#ff2d2d;filter:drop-shadow(0 0 8px rgba(255,45,45,.9));}
 
-  /* 手機直向時，整個儀表板旋轉 90° 強制橫向。
-     原因：iOS Safari 無法用程式強制轉螢幕，使用者又常開「螢幕方向鎖定」，
-     所以改用 CSS 讓畫面永遠橫的——手機直放、橫放、有沒有鎖定都一律橫向。
-     #stage 被 transform 後會成為內部 fixed 元素的定位基準，整組一起轉。
-     只在觸控裝置(pointer:coarse)生效，桌機視窗變窄不會被轉。 */
+  /* 手機直向時，不顯示變形的儀表板，改show「請橫放」提示。
+     原因：iOS Safari 無法用程式強制轉螢幕。CSS硬轉90°會撞到瀏海/動態島且拿直放看很怪，
+     所以改成：直向→引導使用者橫放(並提示關閉方向鎖定)；橫放→顯示原生橫向儀表板(最順、不撞瀏海)。
+     只在觸控裝置(pointer:coarse)判斷，桌機視窗變窄不受影響。 */
   #stage{position:fixed;inset:0;}
+  #rotateHint{display:none;}
+  @keyframes rotateNudge{0%,15%{transform:rotate(0)}55%,75%{transform:rotate(90deg)}100%{transform:rotate(90deg)}}
   @media (orientation:portrait) and (pointer:coarse){
-    #stage{
-      top:100%;left:0;
-      width:100vh;height:100vw;
-      transform:rotate(-90deg);
-      transform-origin:left top;
+    #stage{display:none;}
+    #rotateHint{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+      position:fixed;inset:0;z-index:5000;
+      background:radial-gradient(120% 100% at 50% 0%,#0f2440 0%,#000 70%);
+      color:#fff;text-align:center;padding:30px;
     }
-    #hint{display:none;} /* 橫向空間夠但手機窄，提示字省略 */
+    #rotateHint .ico{font-size:72px;animation:rotateNudge 2.4s ease-in-out infinite}
+    #rotateHint .t{font-size:21px;font-weight:800;letter-spacing:1px}
+    #rotateHint .d{font-size:13px;color:#9aa8bd;line-height:1.9;max-width:290px}
+    #rotateHint .d b{color:#ffd166}
   }
 </style>
 </head>
@@ -208,6 +213,13 @@
 <button id="hdgBtn" class="pill on" title="切換 車頭朝上 / 北朝上">🧭 車頭朝上</button>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
+
+<div id="rotateHint">
+  <div class="ico">📱</div>
+  <div class="t">請將手機橫放</div>
+  <div class="d">這是車用橫向儀表板，橫放才是完整畫面。<br>
+  如果手機轉不過去，請從右上角下拉<b>控制中心</b>，<br>把<b>「螢幕方向鎖定 🔒」關掉</b>，再把手機打橫。</div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
