@@ -276,7 +276,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v25</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v26</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -401,53 +401,62 @@ function setSpd(kmh){
   engineUpdate(kmh);   // 引擎聲浪隨速度變化
 }
 
-/* ── 引擎聲浪模擬(Web Audio 合成，無音檔)：依速度算 RPM(含模擬換檔)，諧波堆疊+濾波+排氣嘶聲 ── */
-let engine=null;
-function startEngine(){
-  if(engine) return;
+/* ── 引擎聲浪：用真實錄音引擎 loop(CC0)依 RPM 交叉淡入，聲音才像真引擎(合成波太像電子音) ── */
+// 6 段實錄 loop，主頻由低到高(怠速→高轉)；依 RPM 在相鄰兩段間 crossfade，並微調 playbackRate 讓音高連續
+const ENG_FILES=['eng0','eng1','eng2','eng3','eng4','eng5'];
+const ENG_BASE=[42.8,60,64.5,69.8,72.9,76.2];   // 各段主頻(Hz)
+let engine=null, engBuffers=null, engLoading=false;
+async function loadEngBuffers(ctx){
+  if(engBuffers) return engBuffers;
+  const arr=await Promise.all(ENG_FILES.map(n=>fetch('sounds/'+n+'.wav').then(r=>r.arrayBuffer()).then(a=>ctx.decodeAudioData(a))));
+  engBuffers=arr; return arr;
+}
+async function startEngine(){
+  if(engine||engLoading) return;
   const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  engLoading=true;
   const ctx=new AC();
+  let bufs; try{ bufs=await loadEngBuffers(ctx); }catch(e){ engLoading=false; try{ctx.close();}catch(_){}; return; }
   const master=ctx.createGain(); master.gain.value=0.0001;
-  const comp=ctx.createDynamicsCompressor();           // 避免破音
-  master.connect(comp); comp.connect(ctx.destination);
-  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=500; lp.Q.value=7; lp.connect(master);
-  // 諧波堆疊：sub 正弦給低頻轟鳴 + 鋸齒/方波諧波模擬四缸排氣
-  const parts=[{m:0.5,t:'sine',g:0.75},{m:1,t:'sawtooth',g:0.5},{m:2,t:'sawtooth',g:0.28},{m:3,t:'sawtooth',g:0.15},{m:4,t:'square',g:0.07}];
-  const oscs=parts.map(p=>{ const o=ctx.createOscillator(); o.type=p.t; const g=ctx.createGain(); g.gain.value=p.g; o.connect(g); g.connect(lp); o.start(); return {o,g,m:p.m}; });
-  // 白噪音過帶通＝進氣/排氣嘶聲，高轉時變大
-  const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate); const dch=buf.getChannelData(0);
-  for(let i=0;i<dch.length;i++) dch[i]=Math.random()*2-1;
-  const nb=ctx.createBufferSource(); nb.buffer=buf; nb.loop=true;
-  const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1000; bp.Q.value=0.7;
-  const ng=ctx.createGain(); ng.gain.value=0.0; nb.connect(bp); bp.connect(ng); ng.connect(master); nb.start();
-  // 低頻 LFO 給怠速一點抖動(lumpy idle)
-  const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=7; const lfg=ctx.createGain(); lfg.gain.value=0.025;
-  lfo.connect(lfg); lfg.connect(master.gain); lfo.start();
-  engine={ctx,master,lp,oscs,ng,bp,rpm:850};
+  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1200; lp.Q.value=0.6;
+  const comp=ctx.createDynamicsCompressor();
+  lp.connect(master); master.connect(comp); comp.connect(ctx.destination);
+  // 每段 loop 一路：BufferSource(loop) → gain → lp
+  const layers=bufs.map((b,i)=>{ const s=ctx.createBufferSource(); s.buffer=b; s.loop=true;
+    const g=ctx.createGain(); g.gain.value=0; s.connect(g); g.connect(lp); s.start(); return {s,g,base:ENG_BASE[i]}; });
+  engine={ctx,master,lp,layers,rpm:850};
+  engLoading=false;
   if(ctx.state==='suspended') ctx.resume();
 }
 function stopEngine(){ if(!engine) return; const e=engine; engine=null;
-  try{ e.master.gain.setTargetAtTime(0.0001,e.ctx.currentTime,0.12); setTimeout(()=>{try{e.ctx.close();}catch(_){}} ,400);}catch(_){}
+  try{ e.master.gain.setTargetAtTime(0.0001,e.ctx.currentTime,0.12); setTimeout(()=>{try{e.ctx.close();}catch(_){}} ,450);}catch(_){}
 }
 function engineUpdate(kmh){
   if(!engine) return;
-  const e=engine, t=e.ctx.currentTime;
+  const e=engine, t=e.ctx.currentTime, N=e.layers.length;
   const gears=[0,22,42,66,96,132,999];               // 換檔速度界線(km/h)
   let gi=0; while(gi<gears.length-1 && kmh>=gears[gi+1]) gi++;
   const lo=gears[gi], hi=gears[gi+1], frac=Math.min(1,Math.max(0,(kmh-lo)/(hi-lo)));
   const idle=850, redline=6800;
-  const targetRpm=(kmh<1.5)? idle+Math.random()*30 : idle+(redline-idle)*frac;
-  e.rpm+=(targetRpm-e.rpm)*0.15;                       // 平滑，換檔 RPM 掉落也順
-  const rpm=e.rpm, load=rpm/redline, f=rpm/60*2;       // 四缸四行程基頻
-  e.oscs.forEach(o=> o.o.frequency.setTargetAtTime(Math.max(20,f*o.m), t, 0.05));
-  e.lp.frequency.setTargetAtTime(280+load*4200, t, 0.06);
-  e.ng.gain.setTargetAtTime(0.012+load*0.06, t, 0.1);
-  e.bp.frequency.setTargetAtTime(800+load*2600, t, 0.1);
-  e.master.gain.setTargetAtTime(0.10+load*0.22, t, 0.08);
+  const targetRpm=(kmh<1.5)? idle : idle+(redline-idle)*frac;
+  e.rpm+=(targetRpm-e.rpm)*0.15;                       // 平滑(換檔 RPM 掉落也順)
+  const rpm=e.rpm, load=(rpm-idle)/(redline-idle);     // 0..1
+  // RPM → loop 位置(0..N-1)，在相鄰兩段 crossfade
+  const pos=Math.min(N-1,Math.max(0,load*(N-1)));
+  const i0=Math.floor(pos), i1=Math.min(N-1,i0+1), fr=pos-i0;
+  // 目標音高：兩段 base 內插；各段 playbackRate=目標/自己base→音高連續
+  const targetHz=e.layers[i0].base*(1-fr)+e.layers[i1].base*fr;
+  e.layers.forEach((L,i)=>{
+    const gain=(i===i0)?(1-fr):(i===i1?fr:0);
+    L.g.gain.setTargetAtTime(gain, t, 0.08);
+    if(gain>0.001){ const rate=Math.min(2.2,Math.max(0.5,targetHz/L.base)); L.s.playbackRate.setTargetAtTime(rate, t, 0.08); }
+  });
+  e.lp.frequency.setTargetAtTime(700+load*5000, t, 0.08);   // 高轉更亮
+  e.master.gain.setTargetAtTime(0.5+load*0.45, t, 0.08);    // 高轉更大聲
 }
 (function(){ const b=$('sndBtn'); if(!b) return;
   b.onclick=()=>{ if(engine){ stopEngine(); b.textContent='🔇'; b.classList.remove('on'); }
-    else { startEngine(); b.textContent='🔊'; b.classList.add('on'); engineUpdate(parseFloat($('spd').textContent)||0); } };
+    else { b.textContent='⏳'; startEngine().then(()=>{ if(engine){ b.textContent='🔊'; b.classList.add('on'); engineUpdate(parseFloat($('spd').textContent)||0);} else b.textContent='🔇'; }); } };
 })();
 function haversine(la1,lo1,la2,lo2){const R=6371000,toR=x=>x*Math.PI/180;const dLa=toR(la2-la1),dLo=toR(lo2-lo1);const a=Math.sin(dLa/2)**2+Math.cos(toR(la1))*Math.cos(toR(la2))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));}
 function bearing(la1,lo1,la2,lo2){const toR=x=>x*Math.PI/180,toD=x=>x*180/Math.PI;
@@ -642,7 +651,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v25';
+const APP_VER='v26';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
