@@ -275,7 +275,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v21</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v22</span>
 </div>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
@@ -535,7 +535,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v21';
+const APP_VER='v22';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -624,7 +624,8 @@ try{
   map=new maplibregl.Map({container:'map',style:s0.style,center:[curLon,curLat],zoom:16,
     pitch:is3D?PITCH_3D:0,bearing:0,attributionControl:false,dragRotate:true,pitchWithRotate:true,maxPitch:70});
   carEl=document.createElement('div'); carEl.className='car-marker'; carEl.innerHTML=iconHtml();
-  carMarker=new maplibregl.Marker({element:carEl,rotationAlignment:'viewport'}).setLngLat([curLon,curLat]).addTo(map);
+  // rotationAlignment/pitchAlignment='map'：車標貼在地圖平面上，切 3D 時會跟著地圖傾斜呈立體透視(躺在路面上)
+  carMarker=new maplibregl.Marker({element:carEl,rotationAlignment:'map',pitchAlignment:'map'}).setLngLat([curLon,curLat]).addTo(map);
   whenStyleLoaded(onStyleReady);  // 初次載入補上 3D 建築 + 路線圖層
   // 只有「使用者」操作(有 originalEvent)才取消跟隨；程式自己 easeTo 轉向不算，否則車頭朝上會秒關跟隨
   const userMove=e=>{ if(e && e.originalEvent){ follow=false; $('followBtn').style.display='block'; } };
@@ -654,12 +655,10 @@ $('hdgBtn').onclick=()=>{
 refreshHdgBtn();
 function mapTick(recenter){
   if(!map)return;
-  if(carMarker)carMarker.setLngLat([curLon,curLat]);
-  // 車頭朝上＝地圖 bearing 轉成 curHead(前方朝上)；箭頭在畫面上指行進方向(curHead - bearing)
+  // 車標貼地圖平面(rotationAlignment=map)：setRotation 用地理方位 curHead，MapLibre 會自動扣掉地圖 bearing
+  // →車頭朝上模式(bearing=curHead)畫面上正立；北方朝上(bearing=0)則指向行進方向；3D 時自動隨地圖傾斜
+  if(carMarker){ carMarker.setLngLat([curLon,curLat]); carMarker.setRotation(iconObj().rot?curHead:0); }
   const b=(headingUp&&follow)?curHead:0;
-  // 箭頭指行進方向(curHead-bearing 隨地圖轉)；emoji 車標維持正立(車頭朝上時上=前方)
-  const inner=carEl&&carEl.firstElementChild;
-  if(inner)inner.style.transform=iconObj().rot?('rotate('+((curHead-b+360)%360)+'deg)'):'none';
   if(follow)map.easeTo({center:[curLon,curLat],bearing:b,duration:recenter?600:900});
 }
 
