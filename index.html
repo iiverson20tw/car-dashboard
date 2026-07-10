@@ -37,7 +37,7 @@
   #zoomBtns button{background:none;border:none;color:#ddd;font-size:20px;width:42px;height:40px;font-weight:600;}
   #zoomBtns button:first-child{border-bottom:1px solid #2a2a2e;}
   #zoomBtns button:active{background:#2c2c30;}
-  #hdgBtn{position:fixed;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 118px);z-index:1000;
+  #hdgBtn{position:fixed;left:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 74px);z-index:1000;
     color:#ddd;font-size:12px;letter-spacing:1px;padding:10px 13px;border:none;}
   #hdgBtn.on{color:#fff;border:1px solid var(--acc1);box-shadow:0 0 12px rgba(79,163,255,.25);}
   body.sport #hdgBtn.on{box-shadow:0 0 12px rgba(255,45,45,.35);}
@@ -155,7 +155,10 @@
       font-size:12px;color:#ddd;padding:8px 12px;border:none;
     }
     #hint{display:none;}
-  }
+    /* iOS Safari 在被 CSS rotate 的祖先裡，backdrop-filter 的取樣區不會跟著轉，
+       會讓毛玻璃「圓盤」跟數字/弧線錯開(看起來沒疊在一起)。強制橫向時關掉即可，
+       pod/pill 背景本身已夠不透明，外觀幾乎無差。 */
+    #pod,.pill,#navBar input,#turnCard,#followBtn{ backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
 </style>
 </head>
 <body>
