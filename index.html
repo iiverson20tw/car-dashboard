@@ -82,7 +82,11 @@
     border:2px solid var(--pod-border);box-shadow:var(--pod-glow);backdrop-filter:blur(10px);
     display:flex;align-items:center;justify-content:center;transition:border-color .5s,box-shadow .5s;}
   body.sport #pod{background:radial-gradient(100% 100% at 38% 30%,rgba(40,14,16,.94) 0%,rgba(10,4,6,.96) 68%);}
-  #pod svg{position:absolute;inset:6%;transform:rotate(135deg);overflow:visible;}
+  /* 注意：不要在 <svg> 上用 CSS transform:rotate()。iOS Safari 會拿 viewBox(200) 而非
+     實際渲染尺寸當旋轉基準，導致整個刻度環相對圓盤往右下位移(電腦正常、手機才歪)。
+     改成把 135deg 旋轉寫進 SVG 內部的 <g transform="rotate(135 100 100)">，用 viewBox
+     座標旋轉，iOS 才會乖乖同心。這裡只留純粹的 inset 定位、不放任何 transform。 */
+  #pod svg{position:absolute;inset:6%;overflow:visible;}
   .track{fill:none;stroke:var(--track);stroke-width:9;stroke-linecap:round;transition:stroke .4s;}
   .prog{fill:none;stroke:url(#g);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .25s ease;}
   body.sport .prog{filter:drop-shadow(0 0 10px rgba(255,45,45,.9)) drop-shadow(0 0 26px rgba(255,90,0,.5));stroke-width:10;}
@@ -200,9 +204,11 @@
       <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
         <stop id="stopA" offset="0"/><stop id="stopB" offset="1"/>
       </linearGradient></defs>
-      <g class="ticks" id="ticks"></g>
-      <circle class="track" cx="100" cy="100" r="88" stroke-dasharray="414 553"/>
-      <circle class="prog" id="arc" cx="100" cy="100" r="88" stroke-dasharray="414 553" stroke-dashoffset="414"/>
+      <g transform="rotate(135 100 100)">
+        <g class="ticks" id="ticks"></g>
+        <circle class="track" cx="100" cy="100" r="88" stroke-dasharray="414 553"/>
+        <circle class="prog" id="arc" cx="100" cy="100" r="88" stroke-dasharray="414 553" stroke-dashoffset="414"/>
+      </g>
     </svg>
     <div class="center">
       <div id="gear"><span id="gP" class="act">P</span><span>R</span><span>N</span><span id="gD">D</span></div>
@@ -223,7 +229,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px">© OSM © CARTO · v9</span>
+  <span style="font-size:9px;color:#556;margin-left:4px">© OSM © CARTO · v10</span>
 </div>
 <button id="hdgBtn" class="pill on" title="切換 車頭朝上 / 北朝上">🧭 車頭朝上</button>
 <button id="followBtn" title="回到目前位置">◎</button>
