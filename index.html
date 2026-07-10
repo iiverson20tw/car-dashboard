@@ -33,33 +33,27 @@
   .maplibregl-canvas{outline:none;}
   .maplibregl-ctrl-attrib,.maplibregl-ctrl-logo{display:none!important;}
   #mapMsg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#666;font-size:13px;text-align:center;line-height:1.8;padding:20px;z-index:1;}
-  /* 自訂縮放鈕（Leaflet 內建的會跟著地圖轉，改放外層） */
-  #zoomBtns{position:fixed;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 106px);z-index:1000;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;}
-  #zoomBtns button{background:none;border:none;color:#ddd;font-size:20px;width:42px;height:40px;font-weight:600;}
+  /* 右側垂直控制列（避開左上導航卡遮擋）：縮放/風格/3D/車頭朝上/車標 */
+  #mapCtrls{position:fixed;right:calc(10px + env(safe-area-inset-right));top:50%;transform:translateY(-50%);
+    z-index:1000;display:flex;flex-direction:column;gap:9px;align-items:flex-end;}
+  .ctrl{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    font-size:18px;font-weight:800;letter-spacing:.5px;color:#ddd;border:none;border-radius:13px;}
+  .ctrl:active{background:#2c2c30;}
+  .ctrl.on{color:#fff;border:1px solid var(--acc1);}
+  body.sport .ctrl.on{border-color:#ff2d2d;box-shadow:0 0 10px rgba(255,45,45,.3);}
+  #tiltBtn{font-size:14px;}
+  #zoomBtns{display:flex;flex-direction:column;overflow:hidden;border-radius:13px;}
+  #zoomBtns button{background:none;border:none;color:#ddd;font-size:20px;width:44px;height:38px;font-weight:600;}
   #zoomBtns button:first-child{border-bottom:1px solid #2a2a2e;}
   #zoomBtns button:active{background:#2c2c30;}
-  /* 地圖風格切換 */
-  #layerBtn{position:fixed;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 200px);z-index:1000;
-    width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#ddd;border:none;border-radius:12px;}
-  #layerBtn:active{background:#2c2c30;}
-  #layerPanel{position:fixed;left:112px;top:calc(max(12px,env(safe-area-inset-top)) + 196px);z-index:1100;
-    display:none;flex-direction:column;padding:6px;border-radius:14px;min-width:150px;}
-  #layerPanel.open{display:flex;}
-  #layerPanel button{background:none;border:none;color:#ddd;text-align:left;padding:9px 12px;border-radius:9px;font-size:13px;white-space:nowrap;}
-  #layerPanel button.act{background:var(--acc1);color:#fff;}
-  body.sport #layerPanel button.act{background:#ff2d2d;}
-  #layerPanel button:active{background:#2c2c30;}
-  /* 2D/3D 視角切換 */
-  #tiltBtn{position:fixed;left:62px;top:calc(max(12px,env(safe-area-inset-top)) + 200px);z-index:1000;
-    min-width:42px;height:42px;padding:0 12px;display:flex;align-items:center;justify-content:center;
-    font-size:13px;font-weight:800;letter-spacing:1px;color:#ddd;border:none;border-radius:12px;}
-  #tiltBtn.on{color:#fff;border:1px solid var(--acc1);}
-  body.sport #tiltBtn.on{border-color:#ff2d2d;box-shadow:0 0 10px rgba(255,45,45,.3);}
-  #tiltBtn:active{background:#2c2c30;}
-  #hdgBtn{position:fixed;left:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 74px);z-index:1000;
-    color:#ddd;font-size:12px;letter-spacing:1px;padding:10px 13px;border:none;}
-  #hdgBtn.on{color:#fff;border:1px solid var(--acc1);box-shadow:0 0 12px rgba(79,163,255,.25);}
-  body.sport #hdgBtn.on{box-shadow:0 0 12px rgba(255,45,45,.35);}
+  /* 風格 / 車標選單：從控制列往左側展開 */
+  #layerPanel,#iconPanel{position:fixed;right:64px;top:50%;transform:translateY(-50%);z-index:1100;
+    display:none;flex-direction:column;padding:6px;border-radius:14px;min-width:148px;max-height:80vh;overflow:auto;}
+  #layerPanel.open,#iconPanel.open{display:flex;}
+  #layerPanel button,#iconPanel button{background:none;border:none;color:#ddd;text-align:left;padding:9px 12px;border-radius:9px;font-size:13px;white-space:nowrap;display:flex;align-items:center;gap:9px;}
+  #layerPanel button.act,#iconPanel button.act{background:var(--acc1);color:#fff;}
+  body.sport #layerPanel button.act,body.sport #iconPanel button.act{background:#ff2d2d;}
+  #layerPanel button:active,#iconPanel button:active{background:#2c2c30;}
 
   /* sport 全畫面紅色氛圍 */
   #vignette{position:fixed;inset:0;pointer-events:none;z-index:500;opacity:0;transition:opacity .6s;
@@ -95,7 +89,7 @@
   #navInfo .meta button{background:none;border:1px solid #444;color:#bbb;border-radius:8px;padding:3px 12px;font-size:12px;margin-top:6px;}
 
   /* ── 右側懸浮圓形儀表 ── */
-  #podWrap{position:fixed;right:calc(18px + env(safe-area-inset-right));top:50%;transform:translateY(-50%);z-index:900;pointer-events:none;}
+  #podWrap{position:fixed;right:calc(90px + env(safe-area-inset-right));top:50%;transform:translateY(-50%);z-index:900;pointer-events:none;}
   #pod{position:relative;width:min(46vmin,340px);height:min(46vmin,340px);border-radius:50%;
     background:radial-gradient(100% 100% at 38% 30%,rgba(30,32,38,.93) 0%,rgba(8,9,12,.95) 68%);
     border:2px solid var(--pod-border);box-shadow:var(--pod-glow);backdrop-filter:blur(10px);
@@ -158,10 +152,11 @@
   #followBtn{position:fixed;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 66px);z-index:1000;
     background:rgba(16,16,18,.9);border:1px solid #333;color:#fff;border-radius:50%;width:44px;height:44px;font-size:18px;display:none;backdrop-filter:blur(6px);}
 
-  .car-marker{width:26px;height:26px;}
+  .car-marker{width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
   .car-marker .arrow{width:26px;height:26px;transition:transform .3s;
     background:var(--acc1);clip-path:polygon(50% 0,90% 100%,50% 78%,10% 100%);
     filter:drop-shadow(0 0 6px rgba(79,163,255,.8));}
+  .car-marker .veh{font-size:28px;line-height:1;transition:transform .3s;filter:drop-shadow(0 1px 3px rgba(0,0,0,.75));}
   body.sport .car-marker .arrow{background:#ff2d2d;filter:drop-shadow(0 0 8px rgba(255,45,45,.9));}
 
   /* 手機方向鎖定開著也要橫向：直向時把整個儀表板轉90°(force landscape)。
@@ -204,10 +199,15 @@
 <div id="mapWrap"><div id="map"></div></div>
 <div id="mapMsg"></div>
 <div id="vignette"></div>
-<div id="zoomBtns" class="pill"><button id="zin">＋</button><button id="zout">－</button></div>
-<button id="layerBtn" class="pill" title="切換地圖風格">🗺️</button>
+<div id="mapCtrls">
+  <div id="zoomBtns" class="pill"><button id="zin">＋</button><button id="zout">－</button></div>
+  <button id="layerBtn" class="ctrl pill" title="切換地圖風格">🗺️</button>
+  <button id="tiltBtn" class="ctrl pill" title="切換 2D / 3D 視角">2D</button>
+  <button id="hdgBtn" class="ctrl pill on" title="切換 車頭朝上 / 北朝上">🧭</button>
+  <button id="iconBtn" class="ctrl pill" title="切換車標圖示">➤</button>
+</div>
 <div id="layerPanel" class="pill"></div>
-<button id="tiltBtn" class="pill" title="切換 2D / 3D 視角">2D</button>
+<div id="iconPanel" class="pill"></div>
 
 <div id="topLeft">
   <div class="pill" id="clock">--:--</div>
@@ -263,9 +263,8 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v15</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OpenFreeMap · OSM · v16</span>
 </div>
-<button id="hdgBtn" class="pill on" title="切換 車頭朝上 / 北朝上">🧭 車頭朝上</button>
 <button id="followBtn" title="回到目前位置">◎</button>
 </div><!-- /#stage -->
 
@@ -418,16 +417,24 @@ function onPos(p){
   }
   updatePosition(c.latitude,c.longitude,kmh,c.altitude,c.heading,p.timestamp);
 }
-function onErr(e){$('dot').className='dot err';$('stxt').textContent='定位失敗';
-  alert('無法取得定位：'+e.message+'\n\n請確認：1.允許定位權限 2.用 HTTPS 開啟（手機上 file:// 無法定位）');}
-$('go').onclick=()=>{
-  stopDemo();
-  if(wId){navigator.geolocation.clearWatch(wId);wId=null;$('dot').className='dot';$('stxt').textContent='已停止';$('go').textContent='開始';return;}
-  if(!navigator.geolocation){alert('此裝置不支援定位');return;}
-  resetTrack();
+let geoAlerted=false;
+function onErr(e){
+  $('dot').className='dot err';$('stxt').textContent='定位失敗（請允許權限）';
+  $('go').textContent='開始';
+  if(wId){navigator.geolocation.clearWatch(wId);wId=null;}
+}
+function startGPS(){
+  if(wId)return;
+  if(!navigator.geolocation){$('stxt').textContent='此裝置不支援定位';return;}
+  stopDemo(); resetTrack();
   $('hint').style.display='none';$('go').textContent='停止';$('stxt').textContent='搜尋衛星…';
   wId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
-};
+}
+function stopGPS(){
+  if(wId){navigator.geolocation.clearWatch(wId);wId=null;}
+  $('dot').className='dot';$('stxt').textContent='已停止';$('go').textContent='開始';
+}
+$('go').onclick=()=>{ if(wId)stopGPS(); else startGPS(); };
 $('reset').onclick=()=>{maxS=0;dist=0;lastLat=null;$('mx').textContent='0';$('dist').textContent='0.0';setSpd(0);};
 
 /* ── 模擬模式（有導航路線時沿路線開） ── */
@@ -516,7 +523,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v15';
+const APP_VER='v16';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -533,17 +540,46 @@ function setMapStyle(k){
     b.onclick=()=>{ setMapStyle(s.k); panel.classList.remove('open'); };
     panel.appendChild(b);
   });
-  $('layerBtn').onclick=e=>{ e.stopPropagation(); panel.classList.toggle('open'); };
+  $('layerBtn').onclick=e=>{ e.stopPropagation(); $('iconPanel').classList.remove('open'); panel.classList.toggle('open'); };
   document.addEventListener('pointerdown',e=>{ if(!panel.contains(e.target)&&e.target!==$('layerBtn')) panel.classList.remove('open'); });
 })();
 $('tiltBtn').onclick=()=>{ is3D=!is3D; localStorage.setItem('map3D',is3D?'1':'0'); apply3D(); };
+
+/* ── 車標圖示(可自選：箭頭/汽車/機車…，存 localStorage) ── */
+const CAR_ICONS=[
+  {k:'arrow',n:'箭頭',g:'➤',  html:'<div class="arrow"></div>',        rot:true},
+  {k:'car',  n:'汽車',g:'🚗', html:'<div class="veh">🚗</div>',        rot:false},
+  {k:'moto', n:'機車',g:'🏍️', html:'<div class="veh">🏍️</div>',        rot:false},
+  {k:'truck',n:'貨車',g:'🚚', html:'<div class="veh">🚚</div>',        rot:false},
+  {k:'taxi', n:'計程車',g:'🚕',html:'<div class="veh">🚕</div>',       rot:false},
+  {k:'dot',  n:'圓點',g:'🔵', html:'<div class="veh" style="font-size:20px">🔵</div>', rot:false},
+];
+let carIcon=localStorage.getItem('carIcon')||'arrow';
+function iconObj(){ return CAR_ICONS.find(x=>x.k===carIcon)||CAR_ICONS[0]; }
+function setCarIcon(k){
+  carIcon=k; localStorage.setItem('carIcon',k);
+  if(carEl) carEl.innerHTML=iconObj().html;
+  const ib=$('iconBtn'); if(ib) ib.textContent=iconObj().g;
+  document.querySelectorAll('#iconPanel button').forEach(b=>b.classList.toggle('act',b.dataset.k===k));
+  mapTick(false);
+}
+(function buildIconPanel(){
+  const panel=$('iconPanel');
+  CAR_ICONS.forEach(s=>{
+    const b=document.createElement('button'); b.textContent=s.g+'　'+s.n; b.dataset.k=s.k;
+    b.onclick=()=>{ setCarIcon(s.k); panel.classList.remove('open'); };
+    panel.appendChild(b);
+  });
+  $('iconBtn').onclick=e=>{ e.stopPropagation(); $('layerPanel').classList.remove('open'); panel.classList.toggle('open'); };
+  document.addEventListener('pointerdown',e=>{ if(!panel.contains(e.target)&&e.target!==$('iconBtn')) panel.classList.remove('open'); });
+})();
 try{
   const s0=styleObjFor(mapStyle);
   $('mapCredit').textContent=s0.a+' · '+APP_VER;
   document.querySelectorAll('#layerPanel button').forEach(b=>b.classList.toggle('act',b.dataset.k===s0.k));
   map=new maplibregl.Map({container:'map',style:s0.style,center:[curLon,curLat],zoom:16,
     pitch:is3D?PITCH_3D:0,bearing:0,attributionControl:false,dragRotate:true,pitchWithRotate:true,maxPitch:70});
-  carEl=document.createElement('div'); carEl.className='car-marker'; carEl.innerHTML='<div class="arrow"></div>';
+  carEl=document.createElement('div'); carEl.className='car-marker'; carEl.innerHTML=iconObj().html;
   carMarker=new maplibregl.Marker({element:carEl,rotationAlignment:'viewport'}).setLngLat([curLon,curLat]).addTo(map);
   whenStyleLoaded(onStyleReady);  // 初次載入補上 3D 建築 + 路線圖層
   map.on('dragstart',()=>{follow=false;$('followBtn').style.display='block';});
@@ -553,11 +589,13 @@ try{
   $('mapMsg').textContent='地圖載入失敗（需要網路連線）';
 }
 apply3D();
+setCarIcon(carIcon);   // 套用已存車標 + 同步按鈕/面板狀態
 $('zin').onclick=()=>{if(map)map.zoomIn();};
 $('zout').onclick=()=>{if(map)map.zoomOut();};
 $('followBtn').onclick=()=>{follow=true;$('followBtn').style.display='none';mapTick(true);};
 function refreshHdgBtn(){
-  $('hdgBtn').textContent=headingUp?'🧭 車頭朝上':'🧭 北朝上';
+  $('hdgBtn').textContent='🧭';
+  $('hdgBtn').title=headingUp?'車頭朝上（點擊改北朝上）':'北朝上（點擊改車頭朝上）';
   $('hdgBtn').classList.toggle('on',headingUp);
 }
 $('hdgBtn').onclick=()=>{
@@ -572,7 +610,9 @@ function mapTick(recenter){
   if(carMarker)carMarker.setLngLat([curLon,curLat]);
   // 車頭朝上＝地圖 bearing 轉成 curHead(前方朝上)；箭頭在畫面上指行進方向(curHead - bearing)
   const b=(headingUp&&follow)?curHead:0;
-  const a=carEl&&carEl.querySelector('.arrow'); if(a)a.style.transform='rotate('+((curHead-b+360)%360)+'deg)';
+  // 箭頭指行進方向(curHead-bearing 隨地圖轉)；emoji 車標維持正立(車頭朝上時上=前方)
+  const inner=carEl&&carEl.firstElementChild;
+  if(inner)inner.style.transform=iconObj().rot?('rotate('+((curHead-b+360)%360)+'deg)'):'none';
   if(follow)map.easeTo({center:[curLon,curLat],bearing:b,duration:recenter?600:900});
 }
 
@@ -588,22 +628,40 @@ function stepText(s){
   if(s.name)t+='　'+s.name;
   return t;
 }
+// 地理編碼：先用 Photon(komoot，模糊搜尋佳、帶座標偏好)，找不到再退回 Nominatim(帶當地 viewbox)
+async function geocode(q){
+  try{
+    const u='https://photon.komoot.io/api/?limit=6&lang=default&lat='+curLat+'&lon='+curLon+'&q='+encodeURIComponent(q);
+    const r=await fetch(u).then(x=>x.json());
+    if(r&&r.features&&r.features.length){
+      const f=r.features[0],c=f.geometry.coordinates,p=f.properties||{};
+      const name=p.name||[p.street,p.district,p.city].filter(Boolean).join(' ')||q;
+      return {lat:c[1],lon:c[0],name};
+    }
+  }catch(_){}
+  try{
+    const d=0.7,vb=(curLon-d)+','+(curLat+d)+','+(curLon+d)+','+(curLat-d);
+    const u='https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=zh-TW&viewbox='+vb+'&q='+encodeURIComponent(q);
+    const r=await fetch(u,{headers:{'Accept-Language':'zh-TW'}}).then(x=>x.json());
+    if(r&&r.length) return {lat:+r[0].lat,lon:+r[0].lon,name:r[0].display_name.split(',')[0]};
+  }catch(_){}
+  return null;
+}
 async function doNav(){
   const q=$('dest').value.trim();
   if(!q)return;
   $('navGo').textContent='…';
   try{
-    const geo=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
-      {headers:{'Accept-Language':'zh-TW'}}).then(r=>r.json());
-    if(!geo.length){alert('找不到「'+q+'」，換個關鍵字試試');$('navGo').textContent='導航';return;}
-    const dLat=+geo[0].lat,dLon=+geo[0].lon;
+    const g=await geocode(q);
+    if(!g){alert('找不到「'+q+'」\n試試：換關鍵字、加上城市名(例：台南 聖母廟)、或用更完整的地址');$('navGo').textContent='導航';return;}
+    const dLat=g.lat,dLon=g.lon;
     const res=await fetch('https://router.project-osrm.org/route/v1/driving/'+curLon+','+curLat+';'+dLon+','+dLat+'?overview=full&geometries=geojson&steps=true').then(r=>r.json());
     if(res.code!=='Ok'||!res.routes.length){alert('規劃路線失敗，請稍後再試');$('navGo').textContent='導航';return;}
     const r=res.routes[0];
     const coords=r.geometry.coordinates.map(c=>({lat:c[1],lon:c[0]}));
     let acc=0;const cum=[0];
     for(let i=1;i<coords.length;i++){acc+=haversine(coords[i-1].lat,coords[i-1].lon,coords[i].lat,coords[i].lon);cum.push(acc);}
-    route={coords,cum,total:acc,steps:r.legs[0].steps,duration:r.duration,distance:r.distance,dest:{lat:dLat,lon:dLon,name:geo[0].display_name.split(',')[0]}};
+    route={coords,cum,total:acc,steps:r.legs[0].steps,duration:r.duration,distance:r.distance,dest:{lat:dLat,lon:dLon,name:g.name}};
     stepIdx=0;
     drawRoute(true);
     $('navInfo').style.display='block';
@@ -664,6 +722,9 @@ function relayoutMap(){ if(map){ map.resize(); if(follow) map.easeTo({center:[cu
 window.addEventListener('resize',()=>setTimeout(relayoutMap,300));
 window.addEventListener('orientationchange',()=>setTimeout(relayoutMap,400));
 setTimeout(relayoutMap,500); // 初次載入若在強制橫向，地圖需重量一次
+
+// 開啟網站就自動定位(不用等按開始)。需要 HTTPS + 使用者允許權限。
+startGPS();
 </script>
 </body>
 </html>
