@@ -27,9 +27,16 @@
   html,body{height:100%;background:#000;color:#fff;font-family:"Helvetica Neue",Arial,"PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden;}
 
   /* ── 全螢幕地圖（超出視窗的正方形，才能整張旋轉做「車頭朝上」） ── */
-  #mapWrap{position:fixed;inset:0;overflow:hidden;z-index:0;background:#0a0a0a;}
+  #mapWrap{position:fixed;inset:0;overflow:hidden;z-index:0;background:#0a0a0a;perspective:1500px;perspective-origin:50% 40%;}
+  /* 3D 導航視角：把整層地圖繞畫面水平軸傾斜(透視在父層 #mapWrap，避免地圖比透視距離大而破圖) */
+  #map3dWrap{position:absolute;inset:0;transition:transform .45s ease;}
+  body.map3d #map3dWrap{transform:rotateX(52deg);}
   #map{position:absolute;left:50%;top:50%;width:150vmax;height:150vmax;
     transform:translate(-50%,-50%) rotate(0deg);transition:transform .45s linear;will-change:transform;}
+  /* 3D 導航視角時，頂部地平線淡出成深色(遮住傾斜後露出的地圖邊緣，像地平線霧氣) */
+  #sky{position:fixed;left:0;right:0;top:0;height:42%;z-index:1;pointer-events:none;opacity:0;transition:opacity .45s;
+    background:linear-gradient(to bottom,#0a0a0a 0%,rgba(10,10,12,.55) 46%,transparent 100%);}
+  body.map3d #sky{opacity:1;}
   .leaflet-container{background:#0a0a0a;font-family:inherit;}
   #mapMsg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#666;font-size:13px;text-align:center;line-height:1.8;padding:20px;z-index:1;}
   /* 自訂縮放鈕（Leaflet 內建的會跟著地圖轉，改放外層） */
@@ -41,13 +48,20 @@
   #layerBtn{position:fixed;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 200px);z-index:1000;
     width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#ddd;border:none;border-radius:12px;}
   #layerBtn:active{background:#2c2c30;}
-  #layerPanel{position:fixed;left:62px;top:calc(max(12px,env(safe-area-inset-top)) + 196px);z-index:1100;
+  #layerPanel{position:fixed;left:112px;top:calc(max(12px,env(safe-area-inset-top)) + 196px);z-index:1100;
     display:none;flex-direction:column;padding:6px;border-radius:14px;min-width:150px;}
   #layerPanel.open{display:flex;}
   #layerPanel button{background:none;border:none;color:#ddd;text-align:left;padding:9px 12px;border-radius:9px;font-size:13px;white-space:nowrap;}
   #layerPanel button.act{background:var(--acc1);color:#fff;}
   body.sport #layerPanel button.act{background:#ff2d2d;}
   #layerPanel button:active{background:#2c2c30;}
+  /* 2D/3D 視角切換 */
+  #tiltBtn{position:fixed;left:62px;top:calc(max(12px,env(safe-area-inset-top)) + 200px);z-index:1000;
+    min-width:42px;height:42px;padding:0 12px;display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:800;letter-spacing:1px;color:#ddd;border:none;border-radius:12px;}
+  #tiltBtn.on{color:#fff;border:1px solid var(--acc1);}
+  body.sport #tiltBtn.on{border-color:#ff2d2d;box-shadow:0 0 10px rgba(255,45,45,.3);}
+  #tiltBtn:active{background:#2c2c30;}
   #hdgBtn{position:fixed;left:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 74px);z-index:1000;
     color:#ddd;font-size:12px;letter-spacing:1px;padding:10px 13px;border:none;}
   #hdgBtn.on{color:#fff;border:1px solid var(--acc1);box-shadow:0 0 12px rgba(79,163,255,.25);}
@@ -193,12 +207,14 @@
 </head>
 <body>
 <div id="stage">
-<div id="mapWrap"><div id="map"></div></div>
+<div id="mapWrap"><div id="map3dWrap"><div id="map"></div></div></div>
+<div id="sky"></div>
 <div id="mapMsg"></div>
 <div id="vignette"></div>
 <div id="zoomBtns" class="pill"><button id="zin">＋</button><button id="zout">－</button></div>
 <button id="layerBtn" class="pill" title="切換地圖風格">🗺️</button>
 <div id="layerPanel" class="pill"></div>
+<button id="tiltBtn" class="pill" title="切換 2D / 3D 視角">2D</button>
 
 <div id="topLeft">
   <div class="pill" id="clock">--:--</div>
@@ -254,7 +270,7 @@
   <button class="btn start" id="go">開始</button>
   <button class="btn" id="reset">歸零</button>
   <button class="btn" id="demo">模擬</button>
-  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OSM · CARTO · v13</span>
+  <span style="font-size:9px;color:#556;margin-left:4px" id="mapCredit">© OSM · CARTO · v14</span>
 </div>
 <button id="hdgBtn" class="pill on" title="切換 車頭朝上 / 北朝上">🧭 車頭朝上</button>
 <button id="followBtn" title="回到目前位置">◎</button>
@@ -451,11 +467,20 @@ $('demo').onclick=()=>{
 /* ── 地圖 ── */
 let map=null,carMk=null,routeLine=null,destMk=null,follow=true;
 let headingUp=localStorage.getItem('headingUp')!=='0'; // 預設車頭朝上
+let is3D=localStorage.getItem('map3D')==='1';           // 3D 導航視角(CSS 透視傾斜)
 let rotCur=0; // 累計旋轉角（走最短路徑，避免 359→1 整圈打轉）
+function setMapTransform(){
+  $('map').style.transform='translate(-50%,-50%) rotate('+rotCur+'deg)';
+}
 function applyRot(target){
   const delta=((target-rotCur)%360+540)%360-180;
   rotCur+=delta;
-  $('map').style.transform='translate(-50%,-50%) rotate('+rotCur+'deg)';
+  setMapTransform();
+}
+function apply3D(){
+  document.body.classList.toggle('map3d',is3D);
+  const b=$('tiltBtn'); if(b){ b.textContent=is3D?'3D':'2D'; b.classList.toggle('on',is3D); }
+  setMapTransform();
 }
 /* 地圖風格(全部免金鑰、可直接用的 raster tiles) */
 const MAP_STYLES=[
@@ -465,7 +490,7 @@ const MAP_STYLES=[
   {k:'osm',    n:'🛣️ 經典街道',     u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                       o:{maxZoom:19}, a:'© OpenStreetMap'},
   {k:'sat',    n:'🛰️ 衛星空拍',     u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', o:{maxZoom:19}, a:'© Esri'},
 ];
-const APP_VER='v13';
+const APP_VER='v14';
 let tileLayer=null, mapStyle=localStorage.getItem('mapStyle')||'dark';
 function setMapStyle(k){
   const s=MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0];
@@ -487,6 +512,8 @@ function setMapStyle(k){
   $('layerBtn').onclick=e=>{ e.stopPropagation(); panel.classList.toggle('open'); };
   document.addEventListener('pointerdown',e=>{ if(!panel.contains(e.target)&&e.target!==$('layerBtn')) panel.classList.remove('open'); });
 })();
+$('tiltBtn').onclick=()=>{ is3D=!is3D; localStorage.setItem('map3D',is3D?'1':'0'); apply3D(); };
+apply3D();
 try{
   map=L.map('map',{zoomControl:false,attributionControl:false}).setView([curLat,curLon],16);
   setMapStyle(mapStyle);
