@@ -188,21 +188,35 @@
   #pod,.pill,#navBar input,#suggest,#turnCard,#followBtn{
     backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
   }
+  /* 直向時：body.forceland=強制轉成橫向(車架用)；否則=原生直向版面。由設定「螢幕方向」切換 */
   @media (orientation:portrait) and (pointer:coarse){
-    #stage{
+    /* ── 強制橫向(車架模式，預設) ── */
+    body.forceland #stage{
       inset:auto;top:50%;left:50%;
       width:calc(100vh - 2*var(--lockInset));
       height:calc(100vw - 2*var(--lockInset));
       transform-origin:center center;
     }
-    body:not(.rotB) #stage{ transform:translate(-50%,-50%) rotate(-90deg); } /* 逆時針(預設) */
-    body.rotB #stage{ transform:translate(-50%,-50%) rotate(90deg); }        /* 順時針 */
-    #flipBtn{
+    body.forceland:not(.rotB) #stage{ transform:translate(-50%,-50%) rotate(-90deg); } /* 逆時針(預設) */
+    body.forceland.rotB #stage{ transform:translate(-50%,-50%) rotate(90deg); }        /* 順時針 */
+    body.forceland #flipBtn{
       display:flex;align-items:center;gap:6px;
       position:fixed;z-index:1200;top:10px;right:10px;
       font-size:12px;color:#ddd;padding:8px 12px;border:none;
     }
-    #hint{display:none;}
+    body.forceland #hint{display:none;}
+
+    /* ── 原生直向版面(非強制橫向)：底部列改可換行、置中，避免窄畫面爆版 ── */
+    body:not(.forceland) #bottomBar{ flex-wrap:wrap; justify-content:center; gap:9px 16px; padding:12px 14px; }
+    body:not(.forceland) #barSpacer{ display:none; }
+    body:not(.forceland) #hint{ display:none; }
+    body:not(.forceland) #mapCredit{ width:100%; text-align:center; margin:2px 0 0 !important; }
+    body:not(.forceland) #spark{ order:20; }
+    body:not(.forceland) #go,body:not(.forceland) #reset,body:not(.forceland) #demo{ order:30; }
+    /* 直向時儀表放中上、控制列縮短間距，避免與底部列重疊 */
+    body:not(.forceland) #podWrap{ right:auto; left:50%; top:34%; transform:translate(-50%,-50%); }
+    body:not(.forceland) #pod{ width:min(62vw,300px); height:min(62vw,300px); }
+    body:not(.forceland) #mapCtrls{ gap:7px; }
   }
 
   /* ── 搜尋自動建議 + 我的最愛 ── */
@@ -368,6 +382,13 @@ let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('settings')||'{}'));}catch(_){}
 function saveS(){localStorage.setItem('settings',JSON.stringify(S));}
 let useMph=S.mph;
+// 螢幕方向偏好：'land'=強制橫向(車架用，預設，即使手機直向鎖定也轉成橫)；'auto'=原生直向版面
+// 須在 buildSetPanel() 之前宣告(那裡會讀 orient)，避免 TDZ
+let orient=localStorage.getItem('orient')||'land';
+function applyOrient(){
+  document.body.classList.toggle('forceland', orient==='land');
+  if(typeof relayoutMap==='function') setTimeout(relayoutMap,350);
+}
 
 /* ── 單位換算 ── */
 const KM2MI=0.621371;
@@ -429,6 +450,7 @@ setInterval(clk,1000);clk();
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   // 目前 #stage 的旋轉角度(強制橫向時 ±90，其餘 0)——把螢幕位移換算成 stage 內部座標
   function stageRot(){
+    if(!document.body.classList.contains('forceland')) return 0;   // 原生直向：#stage 沒轉，座標不用換算
     if(!matchMedia('(orientation:portrait) and (pointer:coarse)').matches) return 0;
     return document.body.classList.contains('rotB') ? 90 : -90;
   }
@@ -754,7 +776,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v31';
+const APP_VER='v32';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
@@ -1185,6 +1207,15 @@ function buildSetPanel(){
     lr.appendChild(b);
   });
   const un=document.createElement('div');un.className='sh';un.textContent='(單位：km/h)';p.appendChild(un);
+  // 螢幕方向
+  secH('螢幕方向');
+  const orow=document.createElement('div');orow.className='sr';orow.id='orientRow';orow.style.gap='8px';p.appendChild(orow);
+  [['land','↔ 橫向(車架)'],['auto','↕ 直向']].forEach(([v,txt])=>{
+    const b=document.createElement('div');b.className='lim'+(orient===v?' act':'');b.textContent=txt;b.dataset.v=v;
+    b.style.flex='1';
+    b.onclick=()=>{orient=v;localStorage.setItem('orient',v);orow.querySelectorAll('.lim').forEach(x=>x.classList.toggle('act',x.dataset.v===v));applyOrient();};
+    orow.appendChild(b);
+  });
   // G 值感測
   secH('感測器');
   const gb=document.createElement('button');gb.id='gEnBtn';gb.className='';gb.textContent=gEnabled?'G 值感測：已啟用':'啟用 G 值 / 加速度表';
@@ -1205,6 +1236,7 @@ function applySettings(){
 }
 buildSetPanel();
 applySettings();
+applyOrient();
 $('setBtn').onclick=e=>{e.stopPropagation();$('layerPanel').classList.remove('open');$('iconPanel').classList.remove('open');$('setPanel').classList.toggle('open');};
 document.addEventListener('pointerdown',e=>{if(!$('setPanel').contains(e.target)&&e.target!==$('setBtn'))$('setPanel').classList.remove('open');});
 setInterval(autoThemeTick,60000);
