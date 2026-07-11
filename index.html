@@ -285,8 +285,8 @@
     width:80px;height:80px;border-radius:50%;background:rgba(14,14,16,.9);border:2px solid var(--pod-border);}
   #speedMini #miniSpd{font-size:31px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-1px;}
   #speedMini .mu{font-size:9px;color:var(--txt-sub);letter-spacing:1px;margin-top:3px;}
-  body.navmini #speedMini{display:flex;}      /* 導航 + 地圖模式：顯示小時速、藏大錶盤 */
-  body.navmini #podWrap{display:none;}
+  body.mapmini #speedMini{display:flex;}      /* 地圖模式一律小時速、藏大錶盤(大錶盤只在儀表板模式) */
+  body.mapmini #podWrap{display:none;}
   body.overspeed #speedMini{border-color:#ff2d2d;}
   body.overspeed #speedMini #miniSpd{color:#ff3b3b;}
   body.sport #speedMini{border-color:rgba(255,45,45,.45);}
@@ -422,8 +422,8 @@ let view=localStorage.getItem('view')||'map';
 function applyView(){
   const gauge=view==='gauge';
   document.body.classList.toggle('gaugeview',gauge);
-  // 導航中(有路線)且地圖模式→用小時速讓路線看得到；儀表板模式一律大錶盤
-  document.body.classList.toggle('navmini', !gauge && !!(typeof route!=='undefined'&&route));
+  // 地圖模式一律用小時速(讓地圖/路線看得清楚)；大錶盤只在儀表板模式
+  document.body.classList.toggle('mapmini', !gauge);
   const vb=document.getElementById('viewBtn');
   if(vb){ vb.textContent=gauge?'🗺️':'📊'; vb.classList.toggle('on',gauge); vb.title=gauge?'回到地圖模式':'切換到儀表板模式(無地圖)'; }
 }
@@ -815,7 +815,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v34';
+const APP_VER='v35';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
