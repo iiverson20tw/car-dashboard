@@ -154,7 +154,8 @@
   #bottomBar .btn:active{background:#2c2c30;}
   #bottomBar .start{background:#fff;color:#000;border:none;font-weight:700;}
   body.sport #bottomBar .start{background:linear-gradient(90deg,#ff2d2d,#ff9500);color:#fff;}
-  #followBtn{position:fixed;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 66px);z-index:1000;
+  /* 回到車位鈕：放底部置中(在資訊列上方)，避開右側控制列與底部列 */
+  #followBtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(max(12px,env(safe-area-inset-bottom)) + 116px);z-index:1000;
     background:rgba(16,16,18,.9);border:1px solid #333;color:#fff;border-radius:50%;width:44px;height:44px;font-size:18px;display:none;backdrop-filter:blur(6px);}
 
   .car-marker{width:30px;height:44px;display:flex;align-items:center;justify-content:center;}
@@ -199,9 +200,12 @@
     }
     body.forceland:not(.rotB) #stage{ transform:translate(-50%,-50%) rotate(-90deg); } /* 逆時針(預設) */
     body.forceland.rotB #stage{ transform:translate(-50%,-50%) rotate(90deg); }        /* 順時針 */
+    /* 強制橫向=橫向版面：模式鈕移中間(右上是控制列)、翻轉鈕移左下 */
+    body.forceland #modeSw{ left:50%; right:auto; transform:translateX(-50%); }
     body.forceland #flipBtn{
       display:flex;align-items:center;gap:6px;
-      position:fixed;z-index:1200;top:10px;left:50%;transform:translateX(-50%);right:auto;
+      position:fixed;z-index:1200;left:12px;right:auto;top:auto;transform:none;
+      bottom:calc(max(12px,env(safe-area-inset-bottom)) + 116px);
       font-size:12px;color:#ddd;padding:8px 12px;border:none;
     }
     body.forceland #hint{display:none;}
@@ -220,6 +224,14 @@
     body:not(.forceland) #podWrap{ right:auto; left:50%; top:34%; transform:translate(-50%,-50%); }
     body:not(.forceland) #pod{ width:min(62vw,300px); height:min(62vw,300px); }
     body:not(.forceland) #mapCtrls{ gap:7px; }
+  }
+
+  /* ── 橫向：右上角是控制列，模式鈕改放頂部置中避免重疊；控制列縮一點避免超出畫面高度 ── */
+  @media (orientation:landscape){
+    #modeSw{ left:50%; right:auto; transform:translateX(-50%); }
+    #mapCtrls{ gap:6px; }
+    #mapCtrls .ctrl{ width:42px; height:42px; }
+    #zoomBtns button{ height:34px; }
   }
 
   /* ── 搜尋自動建議 + 我的最愛 ── */
@@ -283,7 +295,7 @@
   #navBtns button:active{background:#2c2c30;}
 
   /* ── 導航時的小時速圓標(取代大錶盤) ── */
-  #speedMini{position:fixed;left:14px;top:50%;transform:translateY(-50%);z-index:950;
+  #speedMini{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);z-index:950;
     display:none;flex-direction:column;align-items:center;justify-content:center;
     width:80px;height:80px;border-radius:50%;background:rgba(14,14,16,.9);border:2px solid var(--pod-border);}
   #speedMini #miniSpd{font-size:31px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-1px;}
@@ -818,7 +830,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v36';
+const APP_VER='v37';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
