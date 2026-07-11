@@ -200,8 +200,9 @@
     }
     body.forceland:not(.rotB) #stage{ transform:translate(-50%,-50%) rotate(-90deg); } /* 逆時針(預設) */
     body.forceland.rotB #stage{ transform:translate(-50%,-50%) rotate(90deg); }        /* 順時針 */
-    /* 強制橫向=橫向版面：模式鈕移中間(右上是控制列)、翻轉鈕移左下 */
+    /* 強制橫向=橫向版面：模式鈕移中間(右上是控制列)、翻轉鈕移左下、底部列不滿版避開控制列 */
     body.forceland #modeSw{ left:50%; right:auto; transform:translateX(-50%); }
+    body.forceland #bottomBar{ right:calc(64px + env(safe-area-inset-right,0px)); }
     body.forceland #flipBtn{
       display:flex;align-items:center;gap:6px;
       position:fixed;z-index:1200;left:12px;right:auto;top:auto;transform:none;
@@ -232,6 +233,8 @@
     #mapCtrls{ gap:6px; }
     #mapCtrls .ctrl{ width:42px; height:42px; }
     #zoomBtns button{ height:34px; }
+    /* 底部資訊列不要滿版：右邊留出控制列的空間，避免蓋到右側按鈕 */
+    #bottomBar{ right:calc(64px + env(safe-area-inset-right,0px)); }
   }
 
   /* ── 搜尋自動建議 + 我的最愛 ── */
@@ -830,7 +833,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v37';
+const APP_VER='v38';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
