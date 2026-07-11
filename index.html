@@ -75,7 +75,7 @@
   .dot{width:8px;height:8px;border-radius:50%;background:#444;}
   .dot.on{background:#3ad17a;box-shadow:0 0 8px #3ad17a;}
   .dot.err{background:#ff5050;}
-  #modeSw{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:1000;display:flex;overflow:hidden;border-radius:20px;}
+  #modeSw{position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:1000;display:flex;overflow:hidden;border-radius:20px;}
   #modeSw button{background:none;border:none;color:#888;font-size:12px;letter-spacing:1.5px;padding:9px 20px;font-weight:700;}
   #modeSw button.act{background:#fff;color:#000;}
   body.sport #modeSw button.act{background:linear-gradient(90deg,#ff2d2d,#ff9500);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);}
@@ -201,18 +201,21 @@
     body.forceland.rotB #stage{ transform:translate(-50%,-50%) rotate(90deg); }        /* 順時針 */
     body.forceland #flipBtn{
       display:flex;align-items:center;gap:6px;
-      position:fixed;z-index:1200;top:10px;right:10px;
+      position:fixed;z-index:1200;top:10px;left:50%;transform:translateX(-50%);right:auto;
       font-size:12px;color:#ddd;padding:8px 12px;border:none;
     }
     body.forceland #hint{display:none;}
 
     /* ── 原生直向版面(非強制橫向)：底部列改可換行、置中，避免窄畫面爆版 ── */
-    body:not(.forceland) #bottomBar{ flex-wrap:wrap; justify-content:center; gap:9px 16px; padding:12px 14px; }
+    /* 直向底部資訊列：扁一點(縮小內距/字級/按鈕，走勢圖與版權縮到最省空間) */
+    body:not(.forceland) #bottomBar{ flex-wrap:wrap; justify-content:center; gap:3px 13px; padding:7px 12px 8px; }
     body:not(.forceland) #barSpacer{ display:none; }
     body:not(.forceland) #hint{ display:none; }
-    body:not(.forceland) #mapCredit{ width:100%; text-align:center; margin:2px 0 0 !important; }
-    body:not(.forceland) #spark{ order:20; }
-    body:not(.forceland) #go,body:not(.forceland) #reset,body:not(.forceland) #demo{ order:30; }
+    body:not(.forceland) #spark{ display:none; }
+    body:not(.forceland) .stat .v{ font-size:15px; }
+    body:not(.forceland) .stat .l{ font-size:8px; margin-top:0; }
+    body:not(.forceland) #bottomBar .btn{ padding:6px 15px; font-size:12px; order:30; }
+    body:not(.forceland) #mapCredit{ width:100%; text-align:center; font-size:8px; margin:1px 0 0 !important; order:40; }
     /* 直向時儀表放中上、控制列縮短間距，避免與底部列重疊 */
     body:not(.forceland) #podWrap{ right:auto; left:50%; top:34%; transform:translate(-50%,-50%); }
     body:not(.forceland) #pod{ width:min(62vw,300px); height:min(62vw,300px); }
@@ -651,7 +654,7 @@ function onPos(p){
 }
 let geoAlerted=false;
 function onErr(e){
-  $('dot').className='dot err';$('stxt').textContent='定位失敗（請允許權限）';
+  $('dot').className='dot err';$('stxt').textContent='定位失敗';
   $('go').textContent='開始';
   if(wId){navigator.geolocation.clearWatch(wId);wId=null;}
 }
@@ -815,7 +818,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v35';
+const APP_VER='v36';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
