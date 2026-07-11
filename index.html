@@ -789,7 +789,7 @@ const carModelLayer={
     if(!three.visible||!three.car||!three.renderer) return;
     const merc=maplibregl.MercatorCoordinate.fromLngLat([curLon,curLat],0);
     // 縮放到固定螢幕大小(車模型≈CAR_PX 像素長)，不隨 zoom 變小 → 像 Google 導航車(非實際比例)
-    const CAR_PX=76;
+    const CAR_PX=56;
     const scale=CAR_PX/(three.modelSizeZ*512*Math.pow(2,map.getZoom()));
     // 先繞車輛垂直軸(glTF Y)做 yaw=方位，再 rotX(90°) 把車立起貼地→車頭朝行進方向、車頂恆朝上(亮度穩定)
     const rotX=new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1,0,0),Math.PI/2);
@@ -833,7 +833,7 @@ const MAP_STYLES=[
   {k:'positron',n:'🌕 淺色乾淨',  style:'https://tiles.openfreemap.org/styles/positron',a:'© OpenFreeMap · OSM', bld:'#c9cdd6'},
   {k:'sat',     n:'🛰️ 衛星空拍',  style:SAT_STYLE,                                      a:'© Esri',              bld:null},
 ];
-const APP_VER='v38';
+const APP_VER='v39';
 let mapStyle=localStorage.getItem('mapStyle')||'dark';
 function styleObjFor(k){ return MAP_STYLES.find(x=>x.k===k)||MAP_STYLES[0]; }
 function setMapStyle(k){
